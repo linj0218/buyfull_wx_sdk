@@ -555,7 +555,7 @@
           if (code == 0 && result && result.length > 0) {
             runtime.resultUrl = result;
           } else {
-            if (code && code == 100){
+            if (code == 100){
               //wrong buyfull token
               runtime.buyfullToken = "REFRESH"
             }else if (code == 0){
