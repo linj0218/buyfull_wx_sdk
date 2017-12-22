@@ -1,5 +1,6 @@
 # buyfull_wx_sdk
 请将下列URL加入request 合法域名
+https://api.buyfull.cc
 https://cdn.buyfull.cc
 https://sandbox.buyfull.cc（此处为演示后端域名，请自行布署并替换此域名）
 
