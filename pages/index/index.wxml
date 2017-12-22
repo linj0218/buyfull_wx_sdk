@@ -1,0 +1,10 @@
+<!--index.wxml-->
+
+<scroll-view>
+
+ </scroll-view>
+ 
+
+ <view class="record-style">
+ <button class="btn-style" bindtap='onclick'>检测</button>
+ </view>
