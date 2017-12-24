@@ -85,6 +85,7 @@
   function init(options) {
     updateConfigWithOptions(options);
     initRecorder();
+    resetRuntime();
   }
 
   function updateConfigWithOptions(options) {
