@@ -69,6 +69,9 @@
       clearTimeout(runtime.abortTimer);
     }
     runtime.abortTimer = null;
+    if (runtime.buyfullToken.startsWith("ERROR_")){
+      runtime.buyfullToken = '';
+    }
     runtime.qiniuToken = '';
     runtime.uploadServer = '';
     runtime.qiniuUrl = '';
@@ -470,9 +473,11 @@
 
     clearAbortTimer();
     runtime.isUploading = true;
+    var fileName = runtime.mp3FilePath.split('//')[1]
 
     var formData = {
-      'token': runtime.qiniuToken
+      'token': runtime.qiniuToken,
+      'key' : fileName
     };
 
     console.log("doUpload: " + runtime.qiniuToken + " \t "+ runtime.mp3FilePath);
