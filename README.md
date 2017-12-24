@@ -15,4 +15,6 @@ https://up-z1.qbox.me
 https://up-z2.qbox.me
 https://up-na0.qbox.me
 
-有开发疑问请联系QQ:55489181
+测试音乐teststore1.mp3为纯高频音信标，teststore2.mp3为背景音乐信标，请使用功放或小音箱或耳机输出，在电脑和手机上播放可能会出现杂音或识别距离下降。
+
+有疑问请联系QQ:55489181

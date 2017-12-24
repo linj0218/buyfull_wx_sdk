@@ -18,6 +18,7 @@ Page({
   onclick: function () {
     detector.detect(null, function(resultUrl){
       console.log("检测成功,url是:" + resultUrl);
+      //url中的mediaInfo信息可以在营销渠道中的 "其它信息" 内自定义
       wx.showToast({
         title: 'result is: '+ resultUrl,
       })
