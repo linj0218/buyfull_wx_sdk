@@ -53,6 +53,8 @@
   }
 
   function resetRuntime() {
+    runtime.success_cb = null;
+    runtime.fail_cb = null;
     runtime.lastDetectTime = Date.now();
     runtime.isRequestingBuyfullToken = false;
     runtime.isRequestingQiniuToken = false;
@@ -72,8 +74,6 @@
     runtime.qiniuUrl = '';
     runtime.resultUrl = '';
     runtime.mp3FilePath = '';
-    runtime.success_cb = null;
-    runtime.fail_cb = null;
   }
 
   module.exports = {
@@ -483,6 +483,7 @@
       formData: formData,
       success: function (res) {
         clearAbortTimer();
+        runtime.requestTask = null;
         runtime.isUploading = false;
         var dataString = res.data
         try {
@@ -516,6 +517,7 @@
       },
       fail: function (error) {
         clearAbortTimer();
+        runtime.requestTask = null;
         runtime.isUploading = false;
         if (runtime.qiniuUrl == '') {
           if (error && error.errMsg && error.errMsg == "request:fail abort") {
