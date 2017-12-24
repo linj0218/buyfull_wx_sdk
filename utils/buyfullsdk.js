@@ -327,6 +327,7 @@
 
       },
       fail: function (error) {
+        console.error(JSON.stringify(error))
         clearAbortTimer();
         runtime.isRequestingBuyfullToken = false;
         runtime.requestTask = null;
@@ -389,6 +390,7 @@
 
       },
       fail: function (error) {
+        console.error(JSON.stringify(error))
         clearAbortTimer();
         runtime.isRequestingQiniuToken = false;
         runtime.requestTask = null;
@@ -522,6 +524,7 @@
         }
       },
       fail: function (error) {
+        console.error(JSON.stringify(error))
         clearAbortTimer();
         runtime.requestTask = null;
         runtime.isUploading = false;
@@ -577,6 +580,7 @@
 
       },
       fail: function (error) {
+        console.error(JSON.stringify(error))
         clearAbortTimer();
         runtime.isDetecting = false;
         runtime.requestTask = null;
