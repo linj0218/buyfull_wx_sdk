@@ -2,7 +2,7 @@
 (function () {
 
   var err = {
-    HAS_NO_RESULT:              0, //检测无结果
+    HAS_NO_RESULT:              0,//检测无结果
     INVALID_APPKEY:             1,//APPKEY不正确
     DUPLICATE_DETECT:           2,//调用太频繁
     RECORD_FAIL:                3,//录音失败
