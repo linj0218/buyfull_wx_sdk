@@ -12,6 +12,7 @@ Page({
       buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken",
       abortTimeout: 3000,//单次网络请求超时
       detectTimeout: 5000,//总超时
+      debugLog: false,//true可以打开debugLog
     });
   },
 
@@ -57,6 +58,10 @@ Page({
     }, function (errorCode) {
       //检测无结果或有错误都会回调
       //errorcode 定义请查看buyfullsdk.js
+      
+      if (errorCode >= 4 && errorCode <= 8){
+      //errocode 4-8 都和网络以及超时有关，可以自行设计重试和报错机制
+      }
       wx.showToast({
         title: 'error is: ' + errorCode,
       })
