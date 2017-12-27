@@ -14,15 +14,47 @@ Page({
       detectTimeout: 5000,//总超时
     });
   },
-  
+
   onclick: function () {
-    detector.detect(null, function(resultUrl){
+    var thiz = this;
+    wx.getSetting({
+      success:(res) =>{
+        console.log(JSON.stringify(res));
+        if (res.authSetting["scope.record"] === false){
+          wx.showModal({
+            title: '提示',
+            content: '检测位置只需要录音 1 秒钟。\n您可以在微信右上角查看录音状态。\n我们保证不会收集您的任何个人隐私',
+            showCancel: true,
+            cancelText: "不打开",
+            confirmText: "打开权限",
+            success: function (res) {
+              if (res.confirm) {
+                wx.openSetting({
+                  success:(res) =>{
+                    if (res.authSetting["scope.record"] === true) {
+                      thiz.doDetect();
+                    }
+                  }
+                })
+              }
+            }
+          });
+        }else{
+          thiz.doDetect();
+        }
+      }
+    });
+    
+  },
+
+  doDetect: function () {
+    detector.detect(null, function (resultUrl) {
       console.log("检测成功,url是:" + resultUrl);
       //url中的mediaInfo信息可以在营销渠道中的 "其它信息" 内自定义
       wx.showToast({
-        title: 'result is: '+ resultUrl,
+        title: 'result is: ' + resultUrl,
       })
-    }, function(errorCode){
+    }, function (errorCode) {
       //检测无结果或有错误都会回调
       //errorcode 定义请查看buyfullsdk.js
       wx.showToast({
@@ -30,5 +62,4 @@ Page({
       })
     });
   },
-
 })
