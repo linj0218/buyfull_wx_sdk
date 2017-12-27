@@ -2,23 +2,23 @@
 (function () {
 
   var err = {
-    HAS_NO_RESULT: 0, //检测无结果
-    INVALID_APPKEY: 1,//APPKEY不正确
-    DUPLICATE_DETECT: 2,//调用太频繁
-    RECORD_FAIL: 3,//录音失败
-    NETWORK_ERROR: 4,//网络错误
-    GET_QINIU_TOKEN_TIMEOUT: 5,//获取七牛TOKEN超时
-    INVALID_APPINFO: 6,//APPKEY非法
-    GET_QINIU_TOKEN_ERROR: 7,//TOKEN非法
-    JSON_PARSE_ERROR: 8,//上传结果非法
-    UPLOAD_TIMEOUT: 9,//上传超时
-    UPLOAD_FAIL: 10,//上传TOKEN非法
-    DETECT_TIMEOUT: 11,//检测超时
-    DETECT_ERROR: 12,//检测结果非法
-    INVALID_BUYFULL_TOKENURL: 13,//非法的BUYFULL TOKENURL
-    GET_BUYFULL_TOKEN_TIMEOUT: 14,//获取BUYFULL TOKEN超时
-    GET_BUYFULL_TOKEN_ERROR: 15,//BUYFULL TOKEN非法
-    INVALID_QINIU_TOKENURL: 16,//非法的七牛 TOKENURL
+    HAS_NO_RESULT:              0, //检测无结果
+    INVALID_APPKEY:             1,//APPKEY不正确
+    DUPLICATE_DETECT:           2,//调用太频繁
+    RECORD_FAIL:                3,//录音失败
+    NETWORK_ERROR:              4,//网络错误
+    GET_QINIU_TOKEN_TIMEOUT:    5,//获取七牛TOKEN超时
+    UPLOAD_TIMEOUT:             6,//上传超时
+    DETECT_TIMEOUT:             7,//检测超时
+    GET_BUYFULL_TOKEN_TIMEOUT:  8,//获取BUYFULL TOKEN超时
+    INVALID_APPINFO:            9,//APPKEY非法
+    GET_QINIU_TOKEN_ERROR:      10,//TOKEN非法
+    JSON_PARSE_ERROR:           11,//上传结果非法
+    UPLOAD_FAIL:                12,//上传TOKEN非法
+    DETECT_ERROR:               13,//检测结果非法
+    INVALID_BUYFULL_TOKENURL:   14,//非法的BUYFULL TOKENURL
+    GET_BUYFULL_TOKEN_ERROR:    15,//BUYFULL TOKEN非法
+    INVALID_QINIU_TOKENURL:     16,//非法的七牛 TOKENURL
   }
 
   var config = {
