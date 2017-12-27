@@ -26,10 +26,17 @@
     buyfullTokenUrl : '',
     detectTimeout: 5000,//总的超时
     abortTimeout: 3000,//单个API请求的超时
+    debugLog: false,//是否打印debuglog
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     detectUrl: 'https://cdn.buyfull.cc',
     detectSuffix: '?soundtag-decode/decode/place/MP3',
+  }
+
+  module.exports = {
+    init: init,
+    detect: detect,
+    errcode: err
   }
 
   var runtime = {
@@ -79,11 +86,6 @@
     runtime.mp3FilePath = '';
   }
 
-  module.exports = {
-    init: init,
-    detect: detect,
-    errcode : err
-  }
 
   function init(options) {
     updateConfigWithOptions(options);
@@ -101,11 +103,20 @@
       if (options.detectTimeout) {
         config.detectTimeout = options.detectTimeout
       }  
+      if (options.debugLog){
+        config.debugLog = options.debugLog;
+      }
+    }
+  }
+
+  function debugLog(msg){
+    if (config.debugLog){
+      console.log(msg);
     }
   }
 
   function safe_call(cb, result) {
-    console.log("detect use time: " + (Date.now() - runtime.lastDetectTime));
+    debugLog("detect use time: " + (Date.now() - runtime.lastDetectTime));
     if (cb) {
       try {
         cb(result);
@@ -262,7 +273,7 @@
       return;
     } else {
       //success callback
-      console.log("detect use time: " + (Date.now() - runtime.lastDetectTime));
+      debugLog("detect use time: " + (Date.now() - runtime.lastDetectTime));
       runtime.fail_cb = null;
       var success_cb = runtime.success_cb;
       runtime.success_cb = null;
@@ -293,7 +304,7 @@
     if (runtime.isRequestingBuyfullToken)
       return;
 
-    console.log("doGetBuyfullToken:" + config.buyfullTokenUrl);
+    debugLog("doGetBuyfullToken:" + config.buyfullTokenUrl);
     clearAbortTimer();
     runtime.isRequestingBuyfullToken = true;
 
@@ -317,7 +328,7 @@
         if (runtime.buyfullToken == '') {
           if (code && code == 200 && buyfullToken && buyfullToken.length > 0) {
             runtime.buyfullToken = buyfullToken;
-            console.log(buyfullToken);
+            debugLog(buyfullToken);
           } else {
             runtime.buyfullToken = "ERROR_SERVER";
           }
@@ -349,7 +360,7 @@
     if (runtime.isRequestingQiniuToken)
       return;
 
-    console.log("doGetQiniuToken:" + config.qiniuTokenUrl);
+    debugLog("doGetQiniuToken:" + config.qiniuTokenUrl);
     clearAbortTimer();
     runtime.isRequestingQiniuToken = true;
     
@@ -442,7 +453,7 @@
     if (runtime.isRecording)
       return;
 
-    console.log("doRecord");
+    debugLog("doRecord");
     runtime.isRecording = true;
 
     const options = {
@@ -482,7 +493,7 @@
       'key' : fileName
     };
 
-    console.log("doUpload: " + runtime.qiniuToken + " \t "+ runtime.mp3FilePath);
+    debugLog("doUpload: " + runtime.qiniuToken + " \t "+ runtime.mp3FilePath);
 
     runtime.requestTask = wx.uploadFile({
       url: runtime.uploadServer,
@@ -550,7 +561,7 @@
     if (runtime.isDetecting)
       return;
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
-    console.log("doDetect:" + detectUrl);
+    debugLog("doDetect:" + detectUrl);
     clearAbortTimer();
     runtime.isDetecting = true;
     runtime.requestTask = wx.request({
@@ -562,7 +573,7 @@
         var code = res.data.code;
         var result = res.data.result;
         if (runtime.resultUrl == '') {
-          console.log("data is:" + JSON.stringify(res.data));
+          debugLog("data is:" + JSON.stringify(res.data));
           if (code == 0 && result && result.length > 0) {
             runtime.resultUrl = result;
           } else {
@@ -586,9 +597,9 @@
         runtime.requestTask = null;
         if (runtime.resultUrl == '') {
           if (error && error.errMsg && error.errMsg == "request:fail abort") {
-            runtime.qiniuToken = "ERROR_ABORT";
+            runtime.resultUrl = "ERROR_ABORT";
           } else {
-            runtime.qiniuToken = "ERROR_HTTP";
+            runtime.resultUrl = "ERROR_HTTP";
           }
 
           doCheck();
