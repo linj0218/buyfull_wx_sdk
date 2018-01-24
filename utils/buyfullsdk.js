@@ -91,7 +91,6 @@
 
   function init(options) {
     updateConfigWithOptions(options);
-    initRecorder();
     resetRuntime();
   }
 
@@ -426,59 +425,8 @@
     setAbortTimer();
   }
 
-  function initRecorder() {
-    destoryRecorder();
-    const recordManager = wx.getRecorderManager();
-
-    recordManager.onError = function(errMsg){
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        console.error(errMsg);
-        //retry record within 2 sec
-        if ((Date.now() - runtime.lastRecordTime) < 2000){
-          debugLog("retry record");
-          setTimeout(function () {
-            recordManager.stop();
-            doRecord(true);
-          }, 100);
-          return;
-        }
-        
-        runtime.mp3FilePath = "ERROR_RECORD";
-        doCheck();
-      }
-    };
-
-    recordManager.onPause = function(){
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        runtime.mp3FilePath = "ERROR_RECORD";
-        doCheck();
-      }
-    }
-
-    recordManager.onStop = function(res){
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        if (res.duration < 1250 || res.fileSize <= 0){
-          console.error("Record on stop:" +JSON.stringify(res));
-          runtime.mp3FilePath = "ERROR_RECORD";
-        }else{
-          runtime.mp3FilePath = res.tempFilePath;
-        }
-        doCheck();
-      }
-    }
-  }
-
   function destoryRecorder() {
     const recordManager = wx.getRecorderManager();
-    if (recordManager.onError)
-      delete recordManager.onError;
-    if (recordManager.onPause)
-      delete recordManager.onPause;
-    if (recordManager.onStop)
-      delete recordManager.onStop;
     recordManager.stop();
   }
 
@@ -499,6 +447,46 @@
       format: 'mp3'
     }
     const recordManager = wx.getRecorderManager();
+
+    recordManager.onError((errMsg) => {
+      if (runtime.mp3FilePath == '') {
+        console.error(errMsg);
+        //retry record within 2 sec
+        if ((Date.now() - runtime.lastRecordTime) < 2000) {
+          debugLog("retry record");
+          setTimeout(function () {
+            recordManager.stop();
+            recordManager.start(options);
+          }, 100);
+          return;
+        }
+        runtime.isRecording = false;
+        runtime.mp3FilePath = "ERROR_RECORD";
+        doCheck();
+      }
+    })
+
+    recordManager.onPause(() => {
+      runtime.isRecording = false;
+      if (runtime.mp3FilePath == '') {
+        runtime.mp3FilePath = "ERROR_RECORD";
+        doCheck();
+      }
+    })
+
+    recordManager.onStop((res) => {
+      runtime.isRecording = false;
+      if (runtime.mp3FilePath == '') {
+        if (res.duration < 1250 || res.fileSize <= 0) {
+          console.error("Record on stop:" + JSON.stringify(res));
+          runtime.mp3FilePath = "ERROR_RECORD";
+        } else {
+          runtime.mp3FilePath = res.tempFilePath;
+        }
+        doCheck();
+      }
+    })
+    
     recordManager.start(options)
   }
 
