@@ -426,9 +426,9 @@
   }
 
   function initRecorder() {
+    destoryRecorder();
     runtime.recorderManager = wx.getRecorderManager();
-    runtime.recorderManager.stop();
-    
+
     runtime.recorderManager.onError((errMsg) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
@@ -450,7 +450,12 @@
     runtime.recorderManager.onStop((res) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
-        runtime.mp3FilePath = res.tempFilePath;
+        if (res.duration < 1250 || res.fileSize <= 0){
+          console.error(JSON.stringify(res));
+          runtime.mp3FilePath = "ERROR_RECORD";
+        }else{
+          runtime.mp3FilePath = res.tempFilePath;
+        }
         doCheck();
       }
     })
