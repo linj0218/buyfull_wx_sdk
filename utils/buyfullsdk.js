@@ -41,7 +41,6 @@
   }
 
   var runtime = {
-    recorderManager: null,
     lastDetectTime: 0,
     lastRecordTime: 0,
     isRequestingBuyfullToken: false,
@@ -429,9 +428,9 @@
 
   function initRecorder() {
     destoryRecorder();
-    runtime.recorderManager = wx.getRecorderManager();
+    const recorderManager = wx.getRecorderManager();
 
-    runtime.recorderManager.onError((errMsg) => {
+    recordManager.onError((errMsg) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
@@ -439,7 +438,7 @@
         if ((Date.now() - runtime.lastRecordTime) < 2000){
           debugLog("retry record");
           setTimeout(function () {
-            runtime.recorderManager.stop();
+            recordManager.stop();
             doRecord(true);
           }, 100);
           return;
@@ -450,7 +449,7 @@
       }
     })
 
-    runtime.recorderManager.onPause(() => {
+    recordManager.onPause(() => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         runtime.mp3FilePath = "ERROR_RECORD";
@@ -458,7 +457,7 @@
       }
     })
 
-    runtime.recorderManager.onStop((res) => {
+    recordManager.onStop((res) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         if (res.duration < 1250 || res.fileSize <= 0){
@@ -473,16 +472,14 @@
   }
 
   function destoryRecorder() {
-    if (runtime.recorderManager){
-      if (runtime.recorderManager.onError)
-        delete runtime.recorderManager.onError;
-      if (runtime.recorderManager.onPause)
-        delete runtime.recorderManager.onPause;
-      if (runtime.recorderManager.onStop)
-        delete runtime.recorderManager.onStop;
-      runtime.recorderManager.stop();
-      runtime.recorderManager = null;
-    }
+    const recorderManager = wx.getRecorderManager();
+    if (recordManager.onError)
+      delete recordManager.onError;
+    if (recordManager.onPause)
+      delete recordManager.onPause;
+    if (recordManager.onStop)
+      delete recordManager.onStop;
+    recordManager.stop();
   }
 
   function doRecord(isRetry) {
@@ -501,8 +498,8 @@
       encodeBitRate: 128000,
       format: 'mp3'
     }
-
-    runtime.recorderManager.start(options)
+    const recorderManager = wx.getRecorderManager();
+    recordManager.start(options)
   }
 
   function uploadURLFromRegionCode(code) {
