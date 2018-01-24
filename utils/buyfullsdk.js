@@ -43,6 +43,7 @@
   var runtime = {
     recorderManager: null,
     lastDetectTime: 0,
+    lastRecordTime: 0,
     isRequestingBuyfullToken: false,
     isRequestingQiniuToken: false,
     isRecording: false,
@@ -64,6 +65,7 @@
     runtime.success_cb = null;
     runtime.fail_cb = null;
     runtime.lastDetectTime = Date.now();
+    runtime.lastRecordTime = Date.now();
     runtime.isRequestingBuyfullToken = false;
     runtime.isRequestingQiniuToken = false;
     runtime.isRecording = false;
@@ -433,6 +435,15 @@
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
+        if (errMsg == "operateRecorder:fail:start record fail"){
+          //retry record after 1 sec , last 5 sec
+          if (Date.now() - runtime.lastRecordTime < 5000){
+            setTimeout(function () {
+              doRecord(true);
+            }, 100);
+            return;
+          }
+        }
         runtime.mp3FilePath = "ERROR_RECORD";
         doCheck();
       }
@@ -473,13 +484,15 @@
     }
   }
 
-  function doRecord() {
+  function doRecord(isRetry) {
     if (runtime.isRecording)
       return;
 
     debugLog("doRecord");
     runtime.isRecording = true;
-
+    if (!isRetry){
+      runtime.lastRecordTime = Date.now();
+    }
     const options = {
       duration: 1250,
       sampleRate: 44100,
