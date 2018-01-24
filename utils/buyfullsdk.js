@@ -428,7 +428,7 @@
 
   function initRecorder() {
     destoryRecorder();
-    const recorderManager = wx.getRecorderManager();
+    const recordManager = wx.getRecorderManager();
 
     recordManager.onError((errMsg) => {
       runtime.isRecording = false;
@@ -472,7 +472,7 @@
   }
 
   function destoryRecorder() {
-    const recorderManager = wx.getRecorderManager();
+    const recordManager = wx.getRecorderManager();
     if (recordManager.onError)
       delete recordManager.onError;
     if (recordManager.onPause)
@@ -498,7 +498,7 @@
       encodeBitRate: 128000,
       format: 'mp3'
     }
-    const recorderManager = wx.getRecorderManager();
+    const recordManager = wx.getRecorderManager();
     recordManager.start(options)
   }
 
