@@ -436,8 +436,9 @@
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
         if (errMsg == "operateRecorder:fail:start record fail"){
+          debugLog("retry record");
           //retry record after 1 sec , last 5 sec
-          if (Date.now() - runtime.lastRecordTime < 5000){
+          if ((Date.now() - runtime.lastRecordTime) < 5000){
             setTimeout(function () {
               doRecord(true);
             }, 100);
@@ -472,7 +473,7 @@
   }
 
   function destoryRecorder() {
-    if (runtime.recorderManager != null){
+    if (runtime.recorderManager){
       if (runtime.recorderManager.onError)
         delete runtime.recorderManager.onError;
       if (runtime.recorderManager.onPause)
