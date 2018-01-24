@@ -19,6 +19,10 @@ Page({
     });
   },
 
+  onHide: function (){
+    detector.destory();
+  },
+
   onclick: function () {
     if (this.isDetecting){
       return;

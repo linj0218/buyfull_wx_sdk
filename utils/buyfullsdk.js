@@ -35,6 +35,7 @@
 
   module.exports = {
     init: init,
+    destory: destory,
     detect: detect,
     errcode: err
   }
@@ -90,6 +91,11 @@
   function init(options) {
     updateConfigWithOptions(options);
     initRecorder();
+    resetRuntime();
+  }
+
+  function destory(){
+    destoryRecorder();
     resetRuntime();
   }
 
@@ -430,23 +436,16 @@
         doCheck();
       }
     })
+  }
 
-    runtime.recorderManager.onPause((res) => {
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        console.error(errMsg);
-        runtime.mp3FilePath = "ERROR_RECORD";
-        doCheck();
-      }
-    })
-
-    runtime.recorderManager.onStop((res) => {
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        runtime.mp3FilePath = res.tempFilePath;
-        doCheck();
-      }
-    })
+  function destoryRecorder() {
+    if (runtime.recorderManager != null){
+      runtime.recorderManager.onError = null;
+      runtime.recorderManager.onPause = null;
+      runtime.recorderManager.onStop = null;
+      runtime.recorderManager.stop();
+      runtime.recorderManager = null;
+    }
   }
 
   function doRecord() {
