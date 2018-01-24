@@ -441,7 +441,7 @@
     runtime.recorderManager.onPause((res) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
-        console.error(errMsg);
+        console.error("Record on pause:" + JSON.stringify(res));
         runtime.mp3FilePath = "ERROR_RECORD";
         doCheck();
       }
@@ -451,7 +451,7 @@
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         if (res.duration < 1250 || res.fileSize <= 0){
-          console.error(JSON.stringify(res));
+          console.error("Record on stop:" +JSON.stringify(res));
           runtime.mp3FilePath = "ERROR_RECORD";
         }else{
           runtime.mp3FilePath = res.tempFilePath;
