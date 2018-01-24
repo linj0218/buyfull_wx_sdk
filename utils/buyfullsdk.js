@@ -427,12 +427,30 @@
 
   function initRecorder() {
     runtime.recorderManager = wx.getRecorderManager();
-
+    runtime.recorderManager.stop();
+    
     runtime.recorderManager.onError((errMsg) => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
         runtime.mp3FilePath = "ERROR_RECORD";
+        doCheck();
+      }
+    })
+
+    runtime.recorderManager.onPause((res) => {
+      runtime.isRecording = false;
+      if (runtime.mp3FilePath == '') {
+        console.error(errMsg);
+        runtime.mp3FilePath = "ERROR_RECORD";
+        doCheck();
+      }
+    })
+
+    runtime.recorderManager.onStop((res) => {
+      runtime.isRecording = false;
+      if (runtime.mp3FilePath == '') {
+        runtime.mp3FilePath = res.tempFilePath;
         doCheck();
       }
     })
