@@ -430,7 +430,7 @@
     destoryRecorder();
     const recordManager = wx.getRecorderManager();
 
-    recordManager.onError((errMsg) => {
+    recordManager.onError = function(errMsg){
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
@@ -447,17 +447,17 @@
         runtime.mp3FilePath = "ERROR_RECORD";
         doCheck();
       }
-    })
+    };
 
-    recordManager.onPause(() => {
+    recordManager.onPause = function(){
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         runtime.mp3FilePath = "ERROR_RECORD";
         doCheck();
       }
-    })
+    }
 
-    recordManager.onStop((res) => {
+    recordManager.onStop = function(res){
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         if (res.duration < 1250 || res.fileSize <= 0){
@@ -468,7 +468,7 @@
         }
         doCheck();
       }
-    })
+    }
   }
 
   function destoryRecorder() {
