@@ -438,15 +438,11 @@
       }
     })
 
-    runtime.recorderManager.onPause((res) => {
+    runtime.recorderManager.onPause(() => {
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
-        if (res.duration < 1250 || res.fileSize <= 0) {
-          console.error("Record on pause:" + JSON.stringify(res));
-          runtime.mp3FilePath = "ERROR_RECORD";
-        } else {
-          runtime.mp3FilePath = res.tempFilePath;
-        }
+        runtime.mp3FilePath = "ERROR_RECORD";
+        doCheck();
       }
     })
 
