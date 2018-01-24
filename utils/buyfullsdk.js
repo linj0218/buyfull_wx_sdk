@@ -462,9 +462,12 @@
 
   function destoryRecorder() {
     if (runtime.recorderManager != null){
-      runtime.recorderManager.onError = null;
-      runtime.recorderManager.onPause = null;
-      runtime.recorderManager.onStop = null;
+      if (runtime.recorderManager.onError)
+        delete runtime.recorderManager.onError;
+      if (runtime.recorderManager.onPause)
+        delete runtime.recorderManager.onPause;
+      if (runtime.recorderManager.onStop)
+        delete runtime.recorderManager.onStop;
       runtime.recorderManager.stop();
       runtime.recorderManager = null;
     }
