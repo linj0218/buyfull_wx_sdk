@@ -435,16 +435,16 @@
       runtime.isRecording = false;
       if (runtime.mp3FilePath == '') {
         console.error(errMsg);
-        if (errMsg == "operateRecorder:fail:start record fail"){
+        //retry record within 2 sec
+        if ((Date.now() - runtime.lastRecordTime) < 2000){
           debugLog("retry record");
-          //retry record after 1 sec , last 5 sec
-          if ((Date.now() - runtime.lastRecordTime) < 5000){
-            setTimeout(function () {
-              doRecord(true);
-            }, 100);
-            return;
-          }
+          setTimeout(function () {
+            runtime.recorderManager.stop();
+            doRecord(true);
+          }, 100);
+          return;
         }
+        
         runtime.mp3FilePath = "ERROR_RECORD";
         doCheck();
       }
