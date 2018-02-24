@@ -30,7 +30,7 @@
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     detectUrl: 'https://cdn.buyfull.cc',
-    detectSuffix: '?soundtag-decode/decode/place/MP3',
+    detectSuffix: '?soundtag-decode/decodev2/place/MP3',
   }
 
   module.exports = {
@@ -426,8 +426,12 @@
   }
 
   function destoryRecorder() {
-    const recordManager = wx.getRecorderManager();
-    recordManager.stop();
+    if (runtime.isRecording){
+      const recordManager = wx.getRecorderManager();
+      recordManager.stop();
+      runtime.isRecording = false;
+    }
+
   }
 
   function doRecord(isRetry) {
