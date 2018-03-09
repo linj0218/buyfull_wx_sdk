@@ -57,7 +57,15 @@
     resultUrl: '',
     mp3FilePath: '',
     success_cb: null,
-    fail_cb: null
+    fail_cb: null,
+    record_options : {
+      duration: 1250,
+      sampleRate: 44100,
+      numberOfChannels: 1,
+      encodeBitRate: 128000,
+      format: 'mp3'
+    },
+    hasRecordInited : false
   }
 
   function resetRuntime() {
@@ -428,8 +436,9 @@
   function destoryRecorder() {
     if (runtime.isRecording){
       const recordManager = wx.getRecorderManager();
-      recordManager.stop();
       runtime.isRecording = false;
+      runtime.mp3FilePath = '';
+      recordManager.stop();
     }
 
   }
@@ -443,55 +452,84 @@
     if (!isRetry){
       runtime.lastRecordTime = Date.now();
     }
-    const options = {
-      duration: 1250,
-      sampleRate: 44100,
-      numberOfChannels: 1,
-      encodeBitRate: 128000,
-      format: 'mp3'
-    }
+    
     const recordManager = wx.getRecorderManager();
 
-    recordManager.onError((errMsg) => {
-      if (runtime.mp3FilePath == '') {
-        console.error(errMsg);
-        //retry record within 2 sec
-        if ((Date.now() - runtime.lastRecordTime) < 2000) {
-          debugLog("retry record");
-          setTimeout(function () {
-            recordManager.stop();
-            recordManager.start(options);
-          }, 100);
-          return;
-        }
-        runtime.isRecording = false;
-        runtime.mp3FilePath = "ERROR_RECORD";
-        doCheck();
-      }
-    })
+    if (!runtime.hasRecordInited){
+      runtime.hasRecordInited = true;
+      recordManager.onError((errMsg) => {
+        if (runtime.mp3FilePath == '') {
+          if (!runtime.isRecording) {
+            //if we have error after recording , do nothing
+            return;
+          }
+          if (errMsg && errMsg.errCode && errMsg.errCode == 560557684) {
+            //ios return to background
+            debugLog(1);
+          }
+          else if (errMsg) {
+            debugLog(3);
+            console.error(errMsg);
+            //retry record within 2 sec if possible
+            if ((Date.now() - runtime.lastRecordTime) < 2000) {
+              debugLog("on error retry record");
+              
+              setTimeout(function () {
+                if (this != "operateRecorder:fail:audio is stop, don't stop record again"){
+                  debugLog("error stop");
+                  wx.getRecorderManager().stop();
+                }
+                if (this != "operateRecorder:fail:audio is recording, don't start record again"){
+                  debugLog("error start");
+                  wx.getRecorderManager().start(runtime.record_options);
+                }else{
+                  debugLog("4");
+                  //do fail logic
+                  runtime.isRecording = false;
+                  runtime.mp3FilePath = "ERROR_RECORD";
+                  doCheck();
+                }
+              }.bind(errMsg.errMsg.toString()), 100);
+              return;
+            }else{
+              debugLog("5");
+              console.error(errMsg);
+            }
+          }else{
+            debugLog(12);
+          }
 
-    recordManager.onPause(() => {
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        runtime.mp3FilePath = "ERROR_RECORD";
-        doCheck();
-      }
-    })
-
-    recordManager.onStop((res) => {
-      runtime.isRecording = false;
-      if (runtime.mp3FilePath == '') {
-        if (res.duration < 1250 || res.fileSize <= 0) {
-          console.error("Record on stop:" + JSON.stringify(res));
+          debugLog("13");
+          runtime.isRecording = false;
           runtime.mp3FilePath = "ERROR_RECORD";
-        } else {
-          runtime.mp3FilePath = res.tempFilePath;
         }
         doCheck();
-      }
-    })
-    
-    recordManager.start(options)
+      })
+
+      recordManager.onPause(() => {
+        debugLog("on pause");
+        runtime.isRecording = false;
+        if (runtime.mp3FilePath == '') {
+          runtime.mp3FilePath = "ERROR_RECORD";
+        }
+        doCheck();
+      })
+
+      recordManager.onStop((res) => {
+        runtime.isRecording = false;
+        if (runtime.mp3FilePath == '') {
+          if (res.duration < 1250 || res.fileSize <= 0) {
+            console.error("Record on stop:" + JSON.stringify(res));
+            runtime.mp3FilePath = "ERROR_RECORD";
+          } else {
+            runtime.mp3FilePath = res.tempFilePath;
+          }
+        }
+        doCheck();
+      })
+    }
+
+    wx.getRecorderManager().start(runtime.record_options)
   }
 
   function uploadURLFromRegionCode(code) {
