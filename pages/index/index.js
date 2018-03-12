@@ -21,6 +21,7 @@ Page({
 
   onHide: function (){
     detector.destory();
+    this.isDetecting = false;
   },
 
   onclick: function () {
@@ -70,6 +71,7 @@ Page({
       wx.showToast({
         title: 'result is: ' + resultUrl,
       })
+      thiz.isDetecting = false;
     }, function (errorCode) {
       //检测无结果或有错误都会回调
       //errorcode 定义请查看 "buyfullsdk.js"
