@@ -65,7 +65,10 @@
       encodeBitRate: 128000,
       format: 'mp3'
     },
-    hasRecordInited : false
+    hasRecordInited : false,
+    deviceInfo : null,
+    ip : "",
+    hash : ""
   }
 
   function resetRuntime() {
@@ -158,7 +161,19 @@
       safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
-
+    if (runtime.deviceInfo == null){
+      wx.getSystemInfo({
+        success: function (res) {
+          runtime.deviceInfo = res;
+          runtime.deviceInfo.str = JSON.stringify(res);
+          debugLog(runtime.deviceInfo.str);
+        },
+        fail: function (err) {
+          debugLog("Cant get device info");
+          runtime.deviceInfo = {};
+        }
+      });
+    }
     resetRuntime();
 
     runtime.success_cb = success;
@@ -392,6 +407,7 @@
         var code = res.data.code;
         var qiniuToken = res.data.token;
         var region = res.data.region;
+        runtime.ip = res.data.ip;
         if (runtime.qiniuToken == '') {
 
           if (qiniuToken && qiniuToken.length > 0) {
@@ -552,7 +568,15 @@
     clearAbortTimer();
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
-
+    if (runtime.deviceInfo != null && runtime.deviceInfo.brand != null)
+    {
+      if (runtime.deviceInfo.platform == "ios"){
+        fileName = runtime.deviceInfo.model + "_" + runtime.deviceInfo.SDKVersion + "_" +fileName;
+      }else{
+        fileName = runtime.deviceInfo.brand + "_" + runtime.deviceInfo.model + "_" + runtime.deviceInfo.SDKVersion + "_" + fileName;
+      }
+      
+    }
     var formData = {
       'token': runtime.qiniuToken,
       'key' : fileName
@@ -618,15 +642,52 @@
     setAbortTimer();
   }
 
-  function getQiniuDetectUrl(qiniuKey){
-    return config.detectUrl + "/" + qiniuKey + config.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken;
+  function loadSetHash() {
+    //load hash
+    try {
+      var hashCode = wx.getStorageSync("buyfull_hash")
+      if (hashCode) {
+        runtime.hash = hashCode;
+      }
+    } catch (e) {
+
+    }
+    if (runtime.hash == null || runtime.hash == "") {
+      //create hash and store
+      var input = JSON.stringify(runtime.deviceInfo) + runtime.ip + Math.random();
+      runtime.hash = djb2Code(input);
+      try {
+        wx.setStorageSync("buyfull_hash", runtime.hash);
+      } catch (e) {
+
+      }
+    }
   }
+
+  function djb2Code(str) {
+    var hash = 5381;
+    for (var i = 0; i < str.length; i++) {
+      var char = str.charCodeAt(i);
+      hash = ((hash << 5) + hash) + char; /* hash * 33 + c */
+    }
+    return hash;
+  }
+
+  function getQiniuDetectUrl(qiniuKey) {
+    return config.detectUrl + "/" + qiniuKey + config.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + runtime.ip + "/" + runtime.hash + "/" + runtime.deviceInfo.str;
+  }
+
 
   function doDetect(){
     if (runtime.isDetecting)
       return;
+    
+    if (runtime.hash == ""){
+      loadSetHash()
+    }
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
     debugLog("doDetect:" + detectUrl);
+
     clearAbortTimer();
     runtime.isDetecting = true;
     runtime.requestTask = wx.request({
