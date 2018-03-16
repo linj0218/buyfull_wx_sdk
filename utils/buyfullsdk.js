@@ -2,28 +2,28 @@
 (function () {
 
   var err = {
-    HAS_NO_RESULT:              0,//检测无结果
-    INVALID_APPKEY:             1,//APPKEY不正确
-    DUPLICATE_DETECT:           2,//调用太频繁
-    RECORD_FAIL:                3,//录音失败
-    NETWORK_ERROR:              4,//网络错误
-    GET_QINIU_TOKEN_TIMEOUT:    5,//获取七牛TOKEN超时
-    UPLOAD_TIMEOUT:             6,//上传超时
-    DETECT_TIMEOUT:             7,//检测超时
-    GET_BUYFULL_TOKEN_TIMEOUT:  8,//获取BUYFULL TOKEN超时
-    INVALID_APPINFO:            9,//APPKEY非法
-    GET_QINIU_TOKEN_ERROR:      10,//TOKEN非法
-    JSON_PARSE_ERROR:           11,//上传结果非法
-    UPLOAD_FAIL:                12,//上传TOKEN非法
-    DETECT_ERROR:               13,//检测结果非法
-    INVALID_BUYFULL_TOKENURL:   14,//非法的BUYFULL TOKENURL
-    GET_BUYFULL_TOKEN_ERROR:    15,//BUYFULL TOKEN非法
-    INVALID_QINIU_TOKENURL:     16,//非法的七牛 TOKENURL
+    HAS_NO_RESULT: 0,//检测无结果
+    INVALID_APPKEY: 1,//APPKEY不正确
+    DUPLICATE_DETECT: 2,//调用太频繁
+    RECORD_FAIL: 3,//录音失败
+    NETWORK_ERROR: 4,//网络错误
+    GET_QINIU_TOKEN_TIMEOUT: 5,//获取七牛TOKEN超时
+    UPLOAD_TIMEOUT: 6,//上传超时
+    DETECT_TIMEOUT: 7,//检测超时
+    GET_BUYFULL_TOKEN_TIMEOUT: 8,//获取BUYFULL TOKEN超时
+    INVALID_APPINFO: 9,//APPKEY非法
+    GET_QINIU_TOKEN_ERROR: 10,//TOKEN非法
+    JSON_PARSE_ERROR: 11,//上传结果非法
+    UPLOAD_FAIL: 12,//上传TOKEN非法
+    DETECT_ERROR: 13,//检测结果非法
+    INVALID_BUYFULL_TOKENURL: 14,//非法的BUYFULL TOKENURL
+    GET_BUYFULL_TOKEN_ERROR: 15,//BUYFULL TOKEN非法
+    INVALID_QINIU_TOKENURL: 16,//非法的七牛 TOKENURL
   }
 
   var config = {
     appKey: '',
-    buyfullTokenUrl : '',
+    buyfullTokenUrl: '',
     detectTimeout: 5000,//总的超时
     abortTimeout: 3000,//单个API请求的超时
     debugLog: false,//是否打印debuglog
@@ -58,17 +58,17 @@
     mp3FilePath: '',
     success_cb: null,
     fail_cb: null,
-    record_options : {
+    record_options: {
       duration: 1250,
       sampleRate: 44100,
       numberOfChannels: 1,
       encodeBitRate: 128000,
       format: 'mp3'
     },
-    hasRecordInited : false,
-    deviceInfo : null,
-    ip : "",
-    hash : ""
+    hasRecordInited: false,
+    deviceInfo: null,
+    ip: "",
+    hash: ""
   }
 
   function resetRuntime() {
@@ -81,15 +81,15 @@
     runtime.isRecording = false;
     runtime.isUploading = false;
     runtime.isDetecting = false;
-    if (runtime.requestTask != null){
+    if (runtime.requestTask != null) {
       runtime.requestTask.abort();
     }
     runtime.requestTask = null;
-    if (runtime.abortTimer != null){
+    if (runtime.abortTimer != null) {
       clearTimeout(runtime.abortTimer);
     }
     runtime.abortTimer = null;
-    if (runtime.buyfullToken.startsWith("ERROR_")){
+    if (runtime.buyfullToken.startsWith("ERROR_")) {
       runtime.buyfullToken = '';
     }
     runtime.qiniuToken = '';
@@ -105,29 +105,34 @@
     resetRuntime();
   }
 
-  function destory(){
+  function destory() {
     destoryRecorder();
     resetRuntime();
+  }
+
+  String.prototype.replaceAll = function (FindText, RepText) {
+    var regExp = new RegExp(FindText, "g");
+    return this.replace(regExp, RepText);
   }
 
   function updateConfigWithOptions(options) {
     if (options) {
       config.appKey = options.appKey;
       config.buyfullTokenUrl = options.buyfullTokenUrl;
-      if (options.abortTimeout){
+      if (options.abortTimeout) {
         config.abortTimeout = options.abortTimeout
       }
       if (options.detectTimeout) {
         config.detectTimeout = options.detectTimeout
-      }  
-      if (options.debugLog){
+      }
+      if (options.debugLog) {
         config.debugLog = options.debugLog;
       }
     }
   }
 
-  function debugLog(msg){
-    if (config.debugLog){
+  function debugLog(msg) {
+    if (config.debugLog) {
       console.log(msg);
     }
   }
@@ -149,7 +154,7 @@
       safe_call(fail, err.INVALID_APPKEY);
       return;
     }
-    if (!config.buyfullTokenUrl || config.buyfullTokenUrl == ''){
+    if (!config.buyfullTokenUrl || config.buyfullTokenUrl == '') {
       safe_call(fail, err.INVALID_BUYFULL_TOKENURL);
       return;
     }
@@ -161,7 +166,7 @@
       safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
-    if (runtime.deviceInfo == null){
+    if (runtime.deviceInfo == null) {
       wx.getSystemInfo({
         success: function (res) {
           runtime.deviceInfo = res;
@@ -193,7 +198,7 @@
       var fail_cb = runtime.fail_cb;
       runtime.fail_cb = null;
       safe_call(fail_cb, err.DETECT_TIMEOUT);
-      return 
+      return
     }
 
     var hasBuyfullToken = false;
@@ -201,8 +206,8 @@
     var hasMP3 = false;
     var hasUploaded = false;
 
-//check buyfull token
-    if (runtime.buyfullToken == ''){
+    //check buyfull token
+    if (runtime.buyfullToken == '') {
       doGetBuyfullToken(false);
     } else if (runtime.buyfullToken == 'REFRESH') {
       runtime.buyfullToken = "";
@@ -217,13 +222,13 @@
         safe_call(fail_cb, err.GET_BUYFULL_TOKEN_ERROR);
       } else if (runtime.buyfullToken == 'ERROR_HTTP') {
         safe_call(fail_cb, err.NETWORK_ERROR);
-      } 
+      }
       return;
     } else {
       hasBuyfullToken = true;
     }
 
-//check qiniu token
+    //check qiniu token
     if (runtime.qiniuToken == '') {
       if (hasBuyfullToken)
         doGetQiniuToken();
@@ -237,7 +242,7 @@
         safe_call(fail_cb, err.GET_QINIU_TOKEN_ERROR);
       } else if (runtime.qiniuToken == 'ERROR_HTTP') {
         safe_call(fail_cb, err.NETWORK_ERROR);
-      } else if (runtime.qiniuToken == 'ERROR_INVALID_TOKENURL'){
+      } else if (runtime.qiniuToken == 'ERROR_INVALID_TOKENURL') {
         safe_call(fail_cb, err.INVALID_QINIU_TOKENURL);
       }
       return;
@@ -245,8 +250,8 @@
       hasQiniuToken = true;
     }
 
-//check & record mp3 file
-    if (!runtime.isRecording){
+    //check & record mp3 file
+    if (!runtime.isRecording) {
       if (runtime.mp3FilePath == '') {
         doRecord();
       } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
@@ -260,7 +265,7 @@
       }
     }
 
-//check upload to qiniu
+    //check upload to qiniu
     if (runtime.qiniuUrl == '') {
       if (hasQiniuToken && hasMP3)
         doUpload();
@@ -282,8 +287,8 @@
       hasUploaded = true;
     }
 
-//check detect result
-    if (runtime.resultUrl == ''){
+    //check detect result
+    if (runtime.resultUrl == '') {
       if (hasUploaded && hasBuyfullToken)
         doDetect();
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
@@ -296,7 +301,7 @@
         safe_call(fail_cb, err.DETECT_ERROR);
       } else if (runtime.resultUrl == 'ERROR_HTTP') {
         safe_call(fail_cb, err.NETWORK_ERROR);
-      } else if (runtime.resultUrl == 'ERROR_NO_RESULT'){
+      } else if (runtime.resultUrl == 'ERROR_NO_RESULT') {
         safe_call(fail_cb, err.HAS_NO_RESULT);
       }
       return;
@@ -392,7 +397,7 @@
     debugLog("doGetQiniuToken:" + config.qiniuTokenUrl);
     clearAbortTimer();
     runtime.isRequestingQiniuToken = true;
-    
+
     runtime.requestTask = wx.request({
       url: config.qiniuTokenUrl,
       data: {
@@ -436,12 +441,12 @@
         runtime.isRequestingQiniuToken = false;
         runtime.requestTask = null;
         if (runtime.qiniuToken == '') {
-          if (error && error.errMsg && error.errMsg == "request:fail abort"){
+          if (error && error.errMsg && error.errMsg == "request:fail abort") {
             runtime.qiniuToken = "ERROR_ABORT";
-          }else{
+          } else {
             runtime.qiniuToken = "ERROR_HTTP";
           }
-          
+
           doCheck();
         }
       }
@@ -450,7 +455,7 @@
   }
 
   function destoryRecorder() {
-    if (runtime.isRecording){
+    if (runtime.isRecording) {
       const recordManager = wx.getRecorderManager();
       runtime.isRecording = false;
       runtime.mp3FilePath = '';
@@ -465,13 +470,13 @@
 
     debugLog("doRecord");
     runtime.isRecording = true;
-    if (!isRetry){
+    if (!isRetry) {
       runtime.lastRecordTime = Date.now();
     }
-    
+
     const recordManager = wx.getRecorderManager();
 
-    if (!runtime.hasRecordInited){
+    if (!runtime.hasRecordInited) {
       runtime.hasRecordInited = true;
       recordManager.onError((errMsg) => {
         if (runtime.mp3FilePath == '') {
@@ -489,16 +494,16 @@
             //retry record within 2 sec if possible
             if ((Date.now() - runtime.lastRecordTime) < 2000) {
               debugLog("on error retry record");
-              
+
               setTimeout(function () {
-                if (this != "operateRecorder:fail:audio is stop, don't stop record again"){
+                if (this != "operateRecorder:fail:audio is stop, don't stop record again") {
                   debugLog("error stop");
                   wx.getRecorderManager().stop();
                 }
-                if (this != "operateRecorder:fail:audio is recording, don't start record again"){
+                if (this != "operateRecorder:fail:audio is recording, don't start record again") {
                   debugLog("error start");
                   wx.getRecorderManager().start(runtime.record_options);
-                }else{
+                } else {
                   debugLog("4");
                   //do fail logic
                   runtime.isRecording = false;
@@ -507,11 +512,11 @@
                 }
               }.bind(errMsg.errMsg.toString()), 100);
               return;
-            }else{
+            } else {
               debugLog("5");
               console.error(errMsg);
             }
-          }else{
+          } else {
             debugLog(12);
           }
 
@@ -568,21 +573,13 @@
     clearAbortTimer();
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
-    if (runtime.deviceInfo != null && runtime.deviceInfo.brand != null)
-    {
-      if (runtime.deviceInfo.platform == "ios"){
-        fileName = runtime.deviceInfo.model + "_" + runtime.deviceInfo.SDKVersion + "_" +fileName;
-      }else{
-        fileName = runtime.deviceInfo.brand + "_" + runtime.deviceInfo.model + "_" + runtime.deviceInfo.SDKVersion + "_" + fileName;
-      }
-      
-    }
+
     var formData = {
       'token': runtime.qiniuToken,
-      'key' : fileName
+      'key': fileName
     };
 
-    debugLog("doUpload: " + runtime.qiniuToken + " \t "+ runtime.mp3FilePath);
+    debugLog("doUpload: " + runtime.qiniuToken + " \t " + runtime.mp3FilePath);
 
     runtime.requestTask = wx.uploadFile({
       url: runtime.uploadServer,
@@ -674,15 +671,15 @@
   }
 
   function getQiniuDetectUrl(qiniuKey) {
-    return config.detectUrl + "/" + qiniuKey + config.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + runtime.ip + "/" + runtime.hash + "/" + runtime.deviceInfo.str;
+    return config.detectUrl + "/" + qiniuKey + config.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
   }
 
 
-  function doDetect(){
+  function doDetect() {
     if (runtime.isDetecting)
       return;
-    
-    if (runtime.hash == ""){
+
+    if (runtime.hash == "") {
       loadSetHash()
     }
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
@@ -703,12 +700,12 @@
           if (code == 0 && result && result.length > 0) {
             runtime.resultUrl = result;
           } else {
-            if (code == 100){
+            if (code == 100) {
               //wrong buyfull token
               runtime.buyfullToken = "REFRESH"
-            }else if (code == 0){
+            } else if (code == 0) {
               runtime.resultUrl = "ERROR_NO_RESULT"
-            }else{
+            } else {
               runtime.resultUrl = "ERROR_SERVER";
             }
           }
