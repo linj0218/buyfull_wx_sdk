@@ -59,7 +59,7 @@
     success_cb: null,
     fail_cb: null,
     record_options: {
-      duration: 1250,
+      duration: 1500,
       sampleRate: 44100,
       numberOfChannels: 1,
       encodeBitRate: 128000,
@@ -101,6 +101,7 @@
 
 
   function init(options) {
+
     updateConfigWithOptions(options);
     resetRuntime();
   }
@@ -150,6 +151,20 @@
 
 
   function detect(options, success, fail) {
+    if (runtime.deviceInfo == null) {
+      try {
+        var res = wx.getSystemInfoSync()
+        runtime.deviceInfo = res;
+        runtime.deviceInfo.str = JSON.stringify(res);
+        if (runtime.deviceInfo.platform == "ios") {
+          runtime.record_options.duration = 1000;
+        }
+        debugLog(runtime.deviceInfo.str);
+      } catch (e) {
+        debugLog("Cant get device info");
+        runtime.deviceInfo = {};
+      }
+    }
     if (!config.appKey || config.appKey == '') {
       safe_call(fail, err.INVALID_APPKEY);
       return;
@@ -166,19 +181,7 @@
       safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
-    if (runtime.deviceInfo == null) {
-      wx.getSystemInfo({
-        success: function (res) {
-          runtime.deviceInfo = res;
-          runtime.deviceInfo.str = JSON.stringify(res);
-          debugLog(runtime.deviceInfo.str);
-        },
-        fail: function (err) {
-          debugLog("Cant get device info");
-          runtime.deviceInfo = {};
-        }
-      });
-    }
+    
     resetRuntime();
 
     runtime.success_cb = success;
@@ -539,7 +542,7 @@
       recordManager.onStop((res) => {
         runtime.isRecording = false;
         if (runtime.mp3FilePath == '') {
-          if (res.duration < 1250 || res.fileSize <= 0) {
+          if (res.duration < runtime.record_options.duration || res.fileSize <= 0) {
             console.error("Record on stop:" + JSON.stringify(res));
             runtime.mp3FilePath = "ERROR_RECORD";
           } else {
