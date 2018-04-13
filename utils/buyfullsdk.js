@@ -19,6 +19,7 @@
     INVALID_BUYFULL_TOKENURL: 14,//非法的BUYFULL TOKENURL
     GET_BUYFULL_TOKEN_ERROR: 15,//BUYFULL TOKEN非法
     INVALID_QINIU_TOKENURL: 16,//非法的七牛 TOKENURL
+    INVALID_DETECT_OPTIONS: 17,//非法的检测参数
   }
 
   var config = {
@@ -68,7 +69,8 @@
     hasRecordInited: false,
     deviceInfo: null,
     ip: "",
-    hash: ""
+    hash: "",
+    detectSuffix: '',
   }
 
   function resetRuntime() {
@@ -129,6 +131,9 @@
       if (options.debugLog) {
         config.debugLog = options.debugLog;
       }
+      if (options.detectSuffix){
+        config.detectSuffix = options.detectSuffix;
+      }
     }
   }
 
@@ -173,6 +178,12 @@
       safe_call(fail, err.INVALID_BUYFULL_TOKENURL);
       return;
     }
+
+    if (!checkOptions(options)){
+      safe_call(fail, err.INVALID_DETECT_OPTIONS);
+      return;
+    }
+
     if (Date.now() - runtime.lastDetectTime > 10000) {
       //incase some unknow exception,dead line is 10s
       resetRuntime();
@@ -188,6 +199,16 @@
     runtime.fail_cb = fail;
 
     doCheck();
+  }
+
+  function checkOptions(options){
+    runtime.detectSuffix = config.detectSuffix;
+    if (options){
+      if (options.detectSuffix){
+        runtime.detectSuffix = options.detectSuffix;
+      }
+    }
+    return true;
   }
 
   function doCheck() {
@@ -674,7 +695,7 @@
   }
 
   function getQiniuDetectUrl(qiniuKey) {
-    return config.detectUrl + "/" + qiniuKey + config.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
+    return config.detectUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
   }
 
 
