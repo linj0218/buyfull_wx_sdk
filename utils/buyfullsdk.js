@@ -709,6 +709,17 @@
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
     debugLog("doDetect:" + detectUrl);
 
+    if (runtime.deviceInfo.brand == "devtools"){
+      //don't do check if it's weixin devtools
+      clearAbortTimer();
+      setTimeout(function(){
+        runtime.resultUrl = "ERROR_NO_RESULT";
+        doCheck();
+      });
+      
+      return;
+    }
+
     clearAbortTimer();
     runtime.isDetecting = true;
     runtime.requestTask = wx.request({
