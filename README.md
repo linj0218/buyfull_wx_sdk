@@ -18,7 +18,7 @@
   https://up-z2.qbox.me</br>
   https://up-na0.qbox.me</br>
   微信小程序合法域名设置请参考: http://www.jb51.net/article/93841.htm</br>
-  设置完成后可以在微信开发工具主菜单->工具->项目详情->域名信息 中确认
+  设置完成后可以在微信开发工具主菜单->工具->项目详情->域名信息 中确认</br>
 2. 集成SDK</br>
   参照index.js</br></br>
   onLoad：</br>
@@ -48,7 +48,7 @@
   7) 请至少在APP帐号下购买一个渠道后再进行测试，并且请在渠道中自行设定，自行设定，自行设定（重要的事情说三遍）识别结果，可以为任何字符串包括JSON。</br>
   8) detect中的参数option是预留的，目前为空。onDetect中返回的string是个URL地址，格式为</br>
      buyfull://detect?uuid=渠道的唯一标别码&mediaName=渠道名称&mediaInfo=您自行设定的识别结果</br>
-     结果是经过标准的URL ENCODE的，解析前需要进行URL DECODE。
+     结果是经过标准的URL ENCODE的，解析前需要进行URL DECODE。</br>
      
 有疑问请联系QQ:55489181
 
