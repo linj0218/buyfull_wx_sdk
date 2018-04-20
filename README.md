@@ -20,15 +20,17 @@
   微信小程序合法域名设置请参考: http://www.jb51.net/article/93841.htm</br>
   设置完成后可以在微信开发工具主菜单->工具->项目详情->域名信息 中确认
 2. 集成SDK</br>
-  参照index.js onLoad：</br>
+  参照index.js</br></br>
+  onLoad：</br>
   detector.init({
-      //这只是个demo,请联系百蝠获取appkey,同时布署自己的buyfull token service
-      appKey:"121e87d73077403eadd9ab4fec2d9973",//demo appkey
-      buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken", //此
-      abortTimeout: 3000,//单次网络请求超时
-      detectTimeout: 5000,//单次检测的总超时
-      debugLog: true,//true可以打开debugLog
-    });
+      //这只是个demo,请联系百蝠获取appkey,同时布署自己的buyfull token service</br>
+      appKey:"121e87d73077403eadd9ab4fec2d9973",//请替换成自己的APPKEY</br>
+      buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken", //此URL请替换成自已的服务器地址，这个地址上需要布署一个后台服务，用来返回buyfull token</br>
+      abortTimeout: 3000,//单次网络请求超时</br>
+      detectTimeout: 5000,//单次检测的总超时</br>
+      debugLog: true,//true可以打开debugLog</br>
+    });</br></br>
+    
     
 3. 测试</br>
   测试音乐teststore1.mp3为纯高频音信标，teststore2.mp3为背景音乐信标。
