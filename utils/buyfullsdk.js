@@ -68,6 +68,7 @@
     },
     hasRecordInited: false,
     deviceInfo: null,
+    userInfo: "",
     ip: "",
     hash: "",
     detectSuffix: '',
@@ -103,7 +104,18 @@
 
 
   function init(options) {
-
+    wx.login({
+      success: function (res1) {
+        wx.getUserInfo({
+          success: function (res) {
+            delete res.rawData;
+            res.loginCode = res1.code;
+            runtime.userInfo = JSON.stringify(res);
+            debugLog(runtime.userInfo);
+          }
+        })
+      }
+    });
     updateConfigWithOptions(options);
     resetRuntime();
   }
@@ -695,7 +707,7 @@
   }
 
   function getQiniuDetectUrl(qiniuKey) {
-    return config.detectUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
+    return config.detectUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(runtime.userInfo);
   }
 
 
