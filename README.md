@@ -51,6 +51,7 @@
      buyfull://detect?uuid=渠道的唯一标别码&mediaName=渠道名称&mediaInfo=您自行设定的识别结果</br>
      结果是经过标准的URL ENCODE的，解析前需要进行URL DECODE。</br>
   9）请经常更新buyfullsdk.js。</br>
+  10）请记得把后台服务器的地址加入request 合法域名清单中</br>
   
 有疑问请联系QQ:55489181
 
