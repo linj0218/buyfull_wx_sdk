@@ -20,6 +20,7 @@
     GET_BUYFULL_TOKEN_ERROR: 15,//BUYFULL TOKEN非法
     INVALID_QINIU_TOKENURL: 16,//非法的七牛 TOKENURL
     INVALID_DETECT_OPTIONS: 17,//非法的检测参数
+    INVALID_REGION: 18,//非法的服务器地域
   }
 
   var config = {
@@ -30,7 +31,7 @@
     debugLog: false,//是否打印debuglog
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
-    detectUrl: 'https://cdn.buyfull.cc',
+    region: "ECN",
     detectSuffix: '?soundtag-decode/decodev2/place/MP3',
   }
 
@@ -72,6 +73,7 @@
     ip: "",
     hash: "",
     detectSuffix: '',
+    region: '',
   }
 
   function resetRuntime() {
@@ -143,6 +145,9 @@
       if (options.debugLog) {
         config.debugLog = options.debugLog;
       }
+      if (options.region){
+        config.region = options.region;
+      }
       if (options.detectSuffix){
         config.detectSuffix = options.detectSuffix;
       }
@@ -190,7 +195,10 @@
       safe_call(fail, err.INVALID_BUYFULL_TOKENURL);
       return;
     }
-
+    if (!checkRegionCode(config.region)){
+      safe_call(fail, err.INVALID_REGION);
+      return;
+    }
     if (!checkOptions(options)){
       safe_call(fail, err.INVALID_DETECT_OPTIONS);
       return;
@@ -213,11 +221,32 @@
     doCheck();
   }
 
+  function checkRegionCode(code) {
+    switch (code) {
+      case 'ECN':
+      case 'NCN':
+      case 'SCN':
+      // case 'NA0':
+      // case 'AS0':
+        return true;
+      default:
+
+    }
+    return false;
+  }
+
   function checkOptions(options){
+    runtime.region = config.region;
     runtime.detectSuffix = config.detectSuffix;
     if (options){
       if (options.detectSuffix){
         runtime.detectSuffix = options.detectSuffix;
+      }
+      if (options.region) {
+        runtime.region = options.region;
+      }
+      if (!checkRegionCode(runtime.region)){
+        return false;
       }
     }
     return true;
@@ -317,6 +346,8 @@
         safe_call(fail_cb, err.JSON_PARSE_ERROR);
       } else if (runtime.qiniuUrl == 'ERROR_HTTP') {
         safe_call(fail_cb, err.NETWORK_ERROR);
+      } else if (runtime.qiniuUrl == 'ERROR_REGION') {
+        safe_call(fail_cb, err.INVALID_REGION);
       }
       return;
     } else {
@@ -339,6 +370,8 @@
         safe_call(fail_cb, err.NETWORK_ERROR);
       } else if (runtime.resultUrl == 'ERROR_NO_RESULT') {
         safe_call(fail_cb, err.HAS_NO_RESULT);
+      } else if (runtime.resultUrl == 'ERROR_REGION') {
+        safe_call(fail_cb, err.INVALID_REGION);
       }
       return;
     } else {
@@ -439,7 +472,8 @@
       data: {
         "nocache": Math.random() * 10000000000,
         "appkey": config.appKey,
-        "token": runtime.buyfullToken
+        "token": runtime.buyfullToken,
+        "region": runtime.region
       },
       success: function (res) {
         clearAbortTimer();
@@ -462,10 +496,8 @@
             if (code == 404)
               runtime.qiniuToken = "";
           }
-          if (region && region.length > 0 && uploadURLFromRegionCode(region)) {
-            runtime.uploadServer = uploadURLFromRegionCode(region);
-          } else {
-            runtime.uploadServer = uploadURLFromRegionCode('ECN');
+          if (region && region.length > 0 && checkRegionCode(region)) {
+            runtime.region = region;
           }
           doCheck();
         }
@@ -592,10 +624,11 @@
   function uploadURLFromRegionCode(code) {
     var uploadURL = null;
     switch (code) {
-      case 'ECN': uploadURL = 'https://up.qbox.me'; break;
-      case 'NCN': uploadURL = 'https://up-z1.qbox.me'; break;
-      case 'SCN': uploadURL = 'https://up-z2.qbox.me'; break;
-      case 'NA': uploadURL = 'https://up-na0.qbox.me'; break;
+      case 'ECN': uploadURL = 'https://upload.qiniup.com'; break;
+      case 'NCN': uploadURL = 'https://upload-z1.qiniup.com'; break;
+      case 'SCN': uploadURL = 'https://upload-z2.qiniup.com'; break;
+      // case 'NA0': uploadURL = 'https://upload-na0.qiniup.com'; break;
+      // case 'AS0': uploadURL = 'https://upload-as0.qiniup.com'; break;
       default:
 
     }
@@ -607,6 +640,13 @@
       return;
 
     clearAbortTimer();
+
+    runtime.uploadServer = uploadURLFromRegionCode(runtime.region);
+    if (runtime.uploadServer == null) {
+      runtime.qiniuUrl = "ERROR_REGION";
+      doCheck();
+      return;
+    }
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
 
@@ -615,7 +655,7 @@
       'key': fileName
     };
 
-    debugLog("doUpload: " + runtime.qiniuToken + " \t " + runtime.mp3FilePath);
+    debugLog("doUpload: " + runtime.qiniuToken + " \n " + runtime.mp3FilePath + " \n" + runtime.uploadServer);
 
     runtime.requestTask = wx.uploadFile({
       url: runtime.uploadServer,
@@ -706,8 +746,26 @@
     return hash;
   }
 
+  function detectURLFromRegionCode(code) {
+    var url = null;
+    switch (code) {
+      case 'ECN': url = 'https://cdn.buyfull.cc'; break;
+      case 'NCN': url = 'https://cdnnorth.buyfull.cc'; break;
+      case 'SCN': url = 'https://cdnnan.buyfull.cc'; break;
+      //case 'NA0': url = 'https://upload-na0.qiniup.com'; break;
+      //case 'AS0': url = 'https://upload-as0.qiniup.com'; break;
+      default:
+
+    }
+    return url;
+  }
+
   function getQiniuDetectUrl(qiniuKey) {
-    return config.detectUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(runtime.userInfo);
+    var serverUrl = detectURLFromRegionCode(runtime.region);
+    if (serverUrl == null) {
+      return null;
+    }
+    return serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(runtime.userInfo);
   }
 
 
@@ -719,6 +777,11 @@
       loadSetHash()
     }
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
+    if (detectUrl == null){
+      runtime.resultUrl = "ERROR_REGION";
+      doCheck();
+      return;
+    }
     debugLog("doDetect:" + detectUrl);
 
     if (runtime.deviceInfo.brand == "devtools"){
