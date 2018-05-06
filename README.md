@@ -9,14 +9,17 @@
   请将下列URL加入request 合法域名</br>
   https://api.buyfull.cc</br>
   https://cdn.buyfull.cc</br>
+  https://cdnnorth.buyfull.cc</br>
+  https://cdnnan.buyfull.cc</br>
   https://sandbox.buyfull.cc</br>
   sandbox.buyfull.cc为演示用后端域名，请自行布署并替换此域名,参考https://github.com/yecq/buyfull_wx_backend</br>
 
   请将下列URL加入uploadFile 合法域名</br>
-  https://up.qbox.me</br>
-  https://up-z1.qbox.me</br>
-  https://up-z2.qbox.me</br>
-  https://up-na0.qbox.me</br>
+  https://upload.qiniup.com</br>
+  https://upload-z1.qiniup.com</br>
+  https://upload-z2.qiniup.com</br>
+  https://upload-na0.qiniup.com</br>
+  https://upload-as0.qiniup.com</br>
   微信小程序合法域名设置请参考: http://www.jb51.net/article/93841.htm</br>
   设置完成后可以在微信开发工具主菜单->工具->项目详情->域名信息 中确认</br></br>
   
@@ -30,6 +33,7 @@
       abortTimeout: 3000,//单次网络请求超时</br>
       detectTimeout: 5000,//单次检测的总超时</br>
       debugLog: true,//true可以打开debugLog</br>
+      region: "ECN", //可选 ECN华东 NCN华北 SCN华南
     });</br></br>
     
     
