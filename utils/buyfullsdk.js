@@ -112,6 +112,8 @@
           success: function (res) {
             delete res.rawData;
             delete res.encryptedData;
+            delete res.iv;
+            delete res.signature;
             res.loginCode = res1.code;
             runtime.userInfo = JSON.stringify(res);
             debugLog(runtime.userInfo);
