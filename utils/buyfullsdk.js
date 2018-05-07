@@ -111,6 +111,7 @@
         wx.getUserInfo({
           success: function (res) {
             delete res.rawData;
+            delete res.encryptedData;
             res.loginCode = res1.code;
             runtime.userInfo = JSON.stringify(res);
             debugLog(runtime.userInfo);
