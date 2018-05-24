@@ -32,14 +32,15 @@
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     region: "ECN",
-    detectSuffix: '?soundtag-decode/decodev2/place/MP3',
+    detectSuffix: '?soundtag-decode/decodev3/place/MP3',
   }
 
   module.exports = {
     init: init,
     destory: destory,
     detect: detect,
-    errcode: err
+    errcode: err,
+    debug : printDebugLog,
   }
 
   var runtime = {
@@ -74,6 +75,7 @@
     hash: "",
     detectSuffix: '',
     region: '',
+    debugLog: ''
   }
 
   function resetRuntime() {
@@ -157,9 +159,21 @@
     }
   }
 
+  function printDebugLog(){
+    if (config.debugLog){
+      wx.showModal({
+        title: 'buyfull debug',
+        content: runtime.debugLog,
+        confirmText: "OK",
+      });
+      runtime.debugLog = "";
+    }
+  }
+
   function debugLog(msg) {
     if (config.debugLog) {
       console.log(msg);
+      runtime.debugLog += msg + "\n\n";
     }
   }
 
@@ -183,6 +197,9 @@
         runtime.deviceInfo.str = JSON.stringify(res);
         if (runtime.deviceInfo.platform == "ios") {
           runtime.record_options.duration = 1000;
+          runtime.record_options.audioSource = "buildInMic"
+        } else if (runtime.deviceInfo.platform == "android") {
+          runtime.record_options.audioSource = "unprocessed"
         }
         debugLog(runtime.deviceInfo.str);
       } catch (e) {
@@ -485,6 +502,7 @@
         var code = res.data.code;
         var qiniuToken = res.data.token;
         var region = res.data.region;
+        var buyfullToken = res.data.buyfulltoken;
         runtime.ip = res.data.ip;
         if (runtime.qiniuToken == '') {
 
@@ -501,6 +519,10 @@
           }
           if (region && region.length > 0 && checkRegionCode(region)) {
             runtime.region = region;
+          }
+          if (code == 302 && buyfullToken != ""){
+            runtime.buyfullToken = buyfullToken;
+            debugLog("new buyfulltoken is:" + buyfullToken);
           }
           doCheck();
         }
