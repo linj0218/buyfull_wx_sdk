@@ -16,7 +16,6 @@ Page({
       abortTimeout: 3000,//单次网络请求超时
       detectTimeout: 5000,//总超时
       debugLog: false,//true可以打开debugLog
-      region: "ECN", //可选 ECN华东 NCN华北 SCN华南
     });
   },
 
@@ -87,12 +86,14 @@ Page({
           wx.showToast({
             title: 'error is: ' + errorCode,
           })
+          detector.debug();
         }
       }else{
         thiz.isDetecting = false;
         wx.showToast({
           title: 'error is: ' + errorCode,
         })
+        detector.debug();
       }
     });
   },
