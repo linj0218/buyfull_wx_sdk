@@ -199,7 +199,20 @@
           runtime.record_options.duration = 1000;
           runtime.record_options.audioSource = "buildInMic"
         } else if (runtime.deviceInfo.platform == "android") {
-          runtime.record_options.audioSource = "unprocessed"
+          try{
+            var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
+            var system = runtime.deviceInfo.system.split(" ");
+            if (system.length >= 2){
+              var androidversion = system[1].split(".");
+              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7){
+                //it's greater than 7.0
+                runtime.record_options.audioSource = "unprocessed";
+                debugLog("detected android 7.0");
+              }
+            }
+          }catch(e){
+
+          }
         }
         debugLog(runtime.deviceInfo.str);
       } catch (e) {
