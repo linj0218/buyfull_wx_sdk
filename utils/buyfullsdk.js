@@ -112,13 +112,17 @@
       success: function (res1) {
         wx.getUserInfo({
           success: function (res) {
-            delete res.rawData;
-            delete res.encryptedData;
-            delete res.iv;
-            delete res.signature;
-            res.loginCode = res1.code;
-            runtime.userInfo = JSON.stringify(res);
-            debugLog(runtime.userInfo);
+            try{
+              delete res.rawData;
+              delete res.encryptedData;
+              delete res.iv;
+              delete res.signature;
+              res.loginCode = res1.code;
+              runtime.userInfo = JSON.stringify(res);
+              debugLog(runtime.userInfo);
+            }catch(e){
+              debugLog(e);
+            }
           }
         })
       }
@@ -218,6 +222,7 @@
       } catch (e) {
         debugLog("Cant get device info");
         runtime.deviceInfo = {};
+        runtime.deviceInfo.str = "";
       }
     }
     if (!config.appKey || config.appKey == '') {
@@ -765,9 +770,9 @@
     }
     if (runtime.hash == null || runtime.hash == "") {
       //create hash and store
-      var input = JSON.stringify(runtime.deviceInfo) + runtime.ip + Math.random();
-      runtime.hash = djb2Code(input);
       try {
+        var input = JSON.stringify(runtime.deviceInfo) + runtime.ip + Math.random();
+        runtime.hash = djb2Code(input);
         wx.setStorageSync("buyfull_hash", runtime.hash);
       } catch (e) {
 
@@ -803,7 +808,11 @@
     if (serverUrl == null) {
       return null;
     }
-    return serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(runtime.userInfo);
+    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
+    if (runtime.userInfo != ""){
+      url += "/" + encodeURIComponent(runtime.userInfo);
+    }
+    return url;
   }
 
 
