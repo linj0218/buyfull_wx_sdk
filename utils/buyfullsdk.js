@@ -204,14 +204,22 @@
           runtime.record_options.audioSource = "buildInMic"
         } else if (runtime.deviceInfo.platform == "android") {
           try{
-            var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
-            var system = runtime.deviceInfo.system.split(" ");
-            if (system.length >= 2){
-              var androidversion = system[1].split(".");
-              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7){
-                //it's greater than 7.0
-                runtime.record_options.audioSource = "unprocessed";
-                debugLog("detected android 7.0");
+            var brand = runtime.deviceInfo.brand;
+            if (brand == "OPPO"){
+              runtime.record_options.audioSource = "camcorder";
+              runtime.record_options.duration = 1350;
+            } else if (brand == "vivo" || brand == "Xiaomi"){
+              runtime.record_options.duration = 1250;
+            } else if (brand == "HUAWEI" || brand == "OnePlus"){
+              var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
+              var system = runtime.deviceInfo.system.split(" ");
+              if (system.length >= 2) {
+                var androidversion = system[1].split(".");
+                if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
+                  //it's greater than 7.0
+                  runtime.record_options.audioSource = "unprocessed";
+                  runtime.record_options.duration = 1350;
+                }
               }
             }
           }catch(e){
@@ -246,7 +254,7 @@
       //incase some unknow exception,dead line is 10s
       resetRuntime();
     }
-    if (runtime.isRequestingBuyfullToken || runtime.isRecording || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting) {
+    if (runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting) {
       safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
@@ -531,7 +539,14 @@
           }
           if (code && (code == 401 || code == 404)) {
             //token expired, request new one
-            runtime.buyfullToken = "REFRESH";
+            if (buyfullToken != ""){
+              runtime.buyfullToken = buyfullToken;
+              debugLog("new buyfulltoken is:" + buyfullToken);
+            }
+            else{
+              runtime.buyfullToken = "REFRESH";
+            }
+            
             if (code == 404)
               runtime.qiniuToken = "";
           }
@@ -686,6 +701,7 @@
 
     runtime.uploadServer = uploadURLFromRegionCode(runtime.region);
     if (runtime.uploadServer == null) {
+      runtime.isUploading = false;
       runtime.qiniuUrl = "ERROR_REGION";
       doCheck();
       return;
