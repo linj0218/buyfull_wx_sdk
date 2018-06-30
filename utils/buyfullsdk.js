@@ -430,6 +430,10 @@
     }
   }
 
+  function reDoCheck(){
+    setTimeout(doCheck, 1);
+  }
+
   function clearAbortTimer() {
     if (runtime.abortTimer != null) {
       clearTimeout(runtime.abortTimer);
@@ -482,7 +486,7 @@
             runtime.buyfullToken = "ERROR_SERVER";
           }
 
-          doCheck();
+          reDoCheck();
         }
 
       },
@@ -498,7 +502,7 @@
             runtime.buyfullToken = "ERROR_HTTP";
           }
 
-          doCheck();
+          reDoCheck();
         }
       }
     });
@@ -539,7 +543,7 @@
           }
           if (code && (code == 401 || code == 404)) {
             //token expired, request new one
-            if (buyfullToken != ""){
+            if (buyfullToken && buyfullToken.length > 0){
               runtime.buyfullToken = buyfullToken;
               debugLog("new buyfulltoken is:" + buyfullToken);
             }
@@ -553,11 +557,11 @@
           if (region && region.length > 0 && checkRegionCode(region)) {
             runtime.region = region;
           }
-          if (code == 302 && buyfullToken != ""){
+          if (code == 302 && buyfullToken && buyfullToken.length > 0){
             runtime.buyfullToken = buyfullToken;
             debugLog("new buyfulltoken is:" + buyfullToken);
           }
-          doCheck();
+          reDoCheck();
         }
 
       },
@@ -573,7 +577,7 @@
             runtime.qiniuToken = "ERROR_HTTP";
           }
 
-          doCheck();
+          reDoCheck();
         }
       }
     });
@@ -634,7 +638,7 @@
                   //do fail logic
                   runtime.isRecording = false;
                   runtime.mp3FilePath = "ERROR_RECORD";
-                  doCheck();
+                  reDoCheck();
                 }
               }.bind(errMsg.errMsg.toString()), 100);
               return;
@@ -650,7 +654,7 @@
           runtime.isRecording = false;
           runtime.mp3FilePath = "ERROR_RECORD";
         }
-        doCheck();
+        reDoCheck();
       })
 
       recordManager.onPause(() => {
@@ -659,7 +663,7 @@
         if (runtime.mp3FilePath == '') {
           runtime.mp3FilePath = "ERROR_RECORD";
         }
-        doCheck();
+        reDoCheck();
       })
 
       recordManager.onStop((res) => {
@@ -672,11 +676,10 @@
             runtime.mp3FilePath = res.tempFilePath;
           }
         }
-        doCheck();
+        reDoCheck();
       })
     }
-
-    wx.getRecorderManager().start(runtime.record_options)
+    wx.getRecorderManager().start(runtime.record_options);
   }
 
   function uploadURLFromRegionCode(code) {
@@ -703,7 +706,7 @@
     if (runtime.uploadServer == null) {
       runtime.isUploading = false;
       runtime.qiniuUrl = "ERROR_REGION";
-      doCheck();
+      reDoCheck();
       return;
     }
     runtime.isUploading = true;
@@ -732,26 +735,26 @@
           if (dataObject.key) {
             if (runtime.qiniuUrl == '') {
               runtime.qiniuUrl = dataObject.key;
-              doCheck();
+              reDoCheck();
             }
             return;
           } else if (dataObject.error && dataObject.error == "expired token") {
             if (runtime.qiniuUrl == '') {
               //request new upload token
               runtime.qiniuToken = '';
-              doCheck();
+              reDoCheck();
             }
           } else {
             if (runtime.qiniuUrl == '') {
               runtime.qiniuUrl = "ERROR_UPLOAD_FAIL";
-              doCheck();
+              reDoCheck();
             }
           }
 
         } catch (e) {
           if (runtime.qiniuUrl == '') {
             runtime.qiniuUrl = "ERROR_JSON";
-            doCheck();
+            reDoCheck();
           }
         }
       },
@@ -766,7 +769,7 @@
           } else {
             runtime.qiniuUrl = "ERROR_HTTP";
           }
-          doCheck();
+          reDoCheck();
         }
       }
     })
@@ -842,7 +845,7 @@
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
     if (detectUrl == null){
       runtime.resultUrl = "ERROR_REGION";
-      doCheck();
+      reDoCheck();
       return;
     }
     debugLog("doDetect:" + detectUrl);
@@ -852,7 +855,7 @@
       clearAbortTimer();
       setTimeout(function(){
         runtime.resultUrl = "ERROR_NO_RESULT";
-        doCheck();
+        reDoCheck();
       });
       
       return;
@@ -882,7 +885,7 @@
               runtime.resultUrl = "ERROR_SERVER";
             }
           }
-          doCheck();
+          reDoCheck();
         }
 
       },
@@ -898,7 +901,7 @@
             runtime.resultUrl = "ERROR_HTTP";
           }
 
-          doCheck();
+          reDoCheck();
         }
       }
     });
