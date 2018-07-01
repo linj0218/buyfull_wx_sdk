@@ -827,11 +827,11 @@
     if (serverUrl == null) {
       return null;
     }
-    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str);
+    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
     if (runtime.userInfo != ""){
       url += "/" + encodeURIComponent(runtime.userInfo);
     }
-    url += "/" + encodeURIComponent(qiniuKey);
+    
     return url;
   }
 
