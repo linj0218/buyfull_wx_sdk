@@ -210,7 +210,7 @@
               runtime.record_options.duration = 1350;
             } else if (brand == "vivo" || brand == "Xiaomi"){
               runtime.record_options.duration = 1250;
-            } else if (brand == "HUAWEI" || brand == "OnePlus"){
+            } else if (brand == "HUAWEI" || brand == "HONOR" || brand == "OnePlus"){
               var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
               var system = runtime.deviceInfo.system.split(" ");
               if (system.length >= 2) {
