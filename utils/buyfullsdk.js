@@ -831,6 +831,7 @@
     if (runtime.userInfo != ""){
       url += "/" + encodeURIComponent(runtime.userInfo);
     }
+    url += "/" + encodeURIComponent(qiniuKey);
     return url;
   }
 
