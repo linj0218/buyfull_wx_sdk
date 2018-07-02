@@ -200,7 +200,7 @@
         runtime.deviceInfo = res;
         runtime.deviceInfo.str = JSON.stringify(res);
         if (runtime.deviceInfo.platform == "ios") {
-          runtime.record_options.duration = 1000;
+          runtime.record_options.duration = 1100;
           runtime.record_options.audioSource = "buildInMic"
         } else if (runtime.deviceInfo.platform == "android") {
           try{
