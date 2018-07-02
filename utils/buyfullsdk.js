@@ -65,7 +65,7 @@
       duration: 1500,
       sampleRate: 44100,
       numberOfChannels: 1,
-      encodeBitRate: 128000,
+      encodeBitRate: 320000,
       format: 'mp3'
     },
     hasRecordInited: false,
