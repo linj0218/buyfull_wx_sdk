@@ -523,7 +523,8 @@
         "nocache": Math.random() * 10000000000,
         "appkey": config.appKey,
         "token": runtime.buyfullToken,
-        "region": runtime.region
+        "region": runtime.region,
+        "hash": runtime.hash
       },
       success: function (res) {
         clearAbortTimer();
@@ -782,7 +783,8 @@
     try {
       var hashCode = wx.getStorageSync("buyfull_hash")
       if (hashCode) {
-        runtime.hash = hashCode;
+        if (hashCode != ""  && hashCode.startsWith(config.appKey + ":"))
+          runtime.hash = hashCode;
       }
     } catch (e) {
 
@@ -791,7 +793,7 @@
       //create hash and store
       try {
         var input = JSON.stringify(runtime.deviceInfo) + runtime.ip + Math.random();
-        runtime.hash = djb2Code(input);
+        runtime.hash = config.appKey + ":" + djb2Code(input);
         wx.setStorageSync("buyfull_hash", runtime.hash);
       } catch (e) {
 
