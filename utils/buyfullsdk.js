@@ -339,9 +339,24 @@
       hasBuyfullToken = true;
     }
 
+    //check & record mp3 file
+    if (!runtime.isRecording) {
+      if (runtime.mp3FilePath == '') {
+        doRecord();
+      } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
+        runtime.success_cb = null;
+        var fail_cb = runtime.fail_cb;
+        runtime.fail_cb = null;
+        safe_call(fail_cb, err.RECORD_FAIL);
+        return;
+      } else {
+        hasMP3 = true;
+      }
+    }
+
     //check qiniu token
     if (runtime.qiniuToken == '') {
-      if (hasBuyfullToken)
+      if (hasBuyfullToken && hasMP3)
         doGetQiniuToken();
     } else if (runtime.qiniuToken.startsWith("ERROR_")) {
       runtime.success_cb = null;
@@ -359,21 +374,6 @@
       return;
     } else {
       hasQiniuToken = true;
-    }
-
-    //check & record mp3 file
-    if (!runtime.isRecording) {
-      if (runtime.mp3FilePath == '') {
-        doRecord();
-      } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
-        runtime.success_cb = null;
-        var fail_cb = runtime.fail_cb;
-        runtime.fail_cb = null;
-        safe_call(fail_cb, err.RECORD_FAIL);
-        return;
-      } else {
-        hasMP3 = true;
-      }
     }
 
     //check upload to qiniu
@@ -517,15 +517,22 @@
     clearAbortTimer();
     runtime.isRequestingQiniuToken = true;
 
+    var data = {
+      "nocache": Math.random() * 10000000000,
+      "appkey": config.appKey,
+      "token": runtime.buyfullToken,
+      "region": runtime.region,
+    };
+
+    if (runtime.hash && runtime.hash != "")
+      data.hash = runtime.hash;
+
+    var fileName = runtime.mp3FilePath.split('//')[1];
+    data.urlkey = fileName;
+
     runtime.requestTask = wx.request({
       url: config.qiniuTokenUrl,
-      data: {
-        "nocache": Math.random() * 10000000000,
-        "appkey": config.appKey,
-        "token": runtime.buyfullToken,
-        "region": runtime.region,
-        "hash": runtime.hash
-      },
+      data: data,
       success: function (res) {
         clearAbortTimer();
         runtime.isRequestingQiniuToken = false;
