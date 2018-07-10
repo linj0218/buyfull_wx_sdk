@@ -204,13 +204,13 @@
           runtime.record_options.audioSource = "buildInMic"
         } else if (runtime.deviceInfo.platform == "android") {
           try{
-            var brand = runtime.deviceInfo.brand;
-            if (brand == "OPPO"){
+            var brand = runtime.deviceInfo.brand.toLowerCase();
+            if (brand == "oppo"){
               runtime.record_options.audioSource = "camcorder";
               runtime.record_options.duration = 1350;
-            } else if (brand == "vivo" || brand == "Xiaomi"){
+            } else if (brand == "vivo" || brand == "xiaomi"){
               runtime.record_options.duration = 1250;
-            } else if (brand == "HUAWEI" || brand == "HONOR" || brand == "OnePlus"){
+            } else if (brand == "huawei" || brand == "honor" || brand == "oneplus"){
               var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
               var system = runtime.deviceInfo.system.split(" ");
               if (system.length >= 2) {
