@@ -21,6 +21,8 @@
     INVALID_QINIU_TOKENURL: 16,//非法的七牛 TOKENURL
     INVALID_DETECT_OPTIONS: 17,//非法的检测参数
     INVALID_REGION: 18,//非法的服务器地域
+    NO_RECORD_PERMISSION: 19,//没有录音权限
+    WX_VERSION_TOO_LOW: 20,//微信版本太低
   }
 
   var config = {
@@ -75,7 +77,11 @@
     hash: "",
     detectSuffix: '',
     region: '',
-    debugLog: ''
+    debugLog: '',
+    hasShowAccessHint: false,
+    hasShowVersionHint: false,
+    noRecordPermission: false,
+    wxVersionTooLow: false,
   }
 
   function resetRuntime() {
@@ -108,6 +114,23 @@
 
 
   function init(options) {
+    wx.getSetting({
+      success: (res2) => {
+        if (res2.authSetting["scope.record"] === false && !runtime.hasShowAccessHint){
+          runtime.noRecordPermission = true;
+          wx.showModal({
+            title: '提示',
+            content: '请授权录音后才能正常使用',
+            showCancel: false,
+            confirmText: "知道了",
+            success: function (res3) {
+              runtime.hasShowAccessHint = true;
+            }
+          });
+        }
+      }
+    });
+
     wx.login({
       success: function (res1) {
         wx.getUserInfo({
@@ -204,24 +227,63 @@
           runtime.record_options.audioSource = "buildInMic"
         } else if (runtime.deviceInfo.platform == "android") {
           try{
+            var needHint = false;
+            var android7 = false;
+            
+            var system = runtime.deviceInfo.system.split(" ");
+            if (system.length >= 2) {
+              var androidversion = system[1].split(".");
+              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
+                  //it's greater than 7.0
+                android7 = true;
+              }
+            }
+
             var brand = runtime.deviceInfo.brand.toLowerCase();
             if (brand == "oppo"){
               runtime.record_options.audioSource = "camcorder";
               runtime.record_options.duration = 1350;
-            } else if (brand == "vivo" || brand == "xiaomi"){
+              needHint = true;
+            } else if (brand == "vivo"){
               runtime.record_options.duration = 1250;
+            } else if (brand == "xiaomi"){
+              runtime.record_options.duration = 1250;
+              if (android7) {
+                runtime.record_options.audioSource = "unprocessed";
+                runtime.record_options.duration = 1350;
+              }
             } else if (brand == "huawei" || brand == "honor" || brand == "oneplus"){
-              var sdkversion = runtime.deviceInfo.SDKVersion.split(".");
-              var system = runtime.deviceInfo.system.split(" ");
-              if (system.length >= 2) {
-                var androidversion = system[1].split(".");
-                if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
-                  //it's greater than 7.0
-                  runtime.record_options.audioSource = "unprocessed";
-                  runtime.record_options.duration = 1350;
-                }
+              if (android7){
+                runtime.record_options.audioSource = "unprocessed";
+                runtime.record_options.duration = 1350;
+                needHint = true;
               }
             }
+            
+            var wxversion = runtime.deviceInfo.version.split(".");
+            if (needHint && !runtime.hasShowVersionHint){
+              //check if weixin is greater than 6.6.7
+              if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6){
+                if (wxversion.length == 2 && parseInt(wxversion[1]) > 6){
+                  needHint = false;
+                } else if (wxversion.length >= 3 && parseInt(wxversion[2]) >= 7){
+                  needHint = false;
+                }
+              }
+              if (needHint && !runtime.hasShowVersionHint){
+                runtime.wxVersionTooLow = true;
+                wx.showModal({
+                  title: '提示',
+                  content: '微信版本低于6.6.7，请升级微信后才能正常使用',
+                  showCancel: false,
+                  confirmText: "知道了",
+                  success: function (res) {
+                    runtime.hasShowVersionHint = true;
+                  }
+                });
+              }
+            }
+
           }catch(e){
 
           }
@@ -247,6 +309,16 @@
     }
     if (!checkOptions(options)){
       safe_call(fail, err.INVALID_DETECT_OPTIONS);
+      return;
+    }
+
+    if (runtime.noRecordPermission){
+      safe_call(fail, err.NO_RECORD_PERMISSION);
+      return;
+    }
+
+    if (runtime.wxVersionTooLow) {
+      safe_call(fail, err.WX_VERSION_TOO_LOW);
       return;
     }
 
