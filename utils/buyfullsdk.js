@@ -82,6 +82,9 @@
     hasShowVersionHint: false,
     noRecordPermission: false,
     wxVersionTooLow: false,
+    suspended: false,
+    lastRecordEvent: "",
+    lastRecordError: null,
   }
 
   function resetRuntime() {
@@ -151,6 +154,7 @@
       }
     });
     updateConfigWithOptions(options);
+    registerAppEventHandler();
     resetRuntime();
   }
 
@@ -503,6 +507,8 @@
   }
 
   function reDoCheck(){
+    if (runtime.suspended)
+      return;
     setTimeout(doCheck, 1);
   }
 
@@ -545,6 +551,8 @@
       url: config.buyfullTokenUrl,
       data: params,
       success: function (res) {
+        if (!runtime.isRequestingBuyfullToken)
+          return;
         clearAbortTimer();
         runtime.isRequestingBuyfullToken = false;
         runtime.requestTask = null;
@@ -564,6 +572,8 @@
       },
       fail: function (error) {
         console.error(JSON.stringify(error))
+        if (!runtime.isRequestingBuyfullToken)
+          return;
         clearAbortTimer();
         runtime.isRequestingBuyfullToken = false;
         runtime.requestTask = null;
@@ -606,6 +616,8 @@
       url: config.qiniuTokenUrl,
       data: data,
       success: function (res) {
+        if (!runtime.isRequestingQiniuToken)
+          return;
         clearAbortTimer();
         runtime.isRequestingQiniuToken = false;
         runtime.requestTask = null;
@@ -647,6 +659,8 @@
       },
       fail: function (error) {
         console.error(JSON.stringify(error))
+        if (!runtime.isRequestingQiniuToken)
+          return;
         clearAbortTimer();
         runtime.isRequestingQiniuToken = false;
         runtime.requestTask = null;
@@ -664,14 +678,75 @@
     setAbortTimer();
   }
 
-  function destoryRecorder() {
-    if (runtime.isRecording) {
-      const recordManager = wx.getRecorderManager();
-      runtime.isRecording = false;
-      runtime.mp3FilePath = '';
-      recordManager.stop();
+  function onShow(options) {
+    try {
+      debugLog("buyfull onShow");
+      if (runtime.suspended){
+        runtime.suspended = false;
+        if (runtime.isRecording){
+          debugLog("restart record");
+          runtime.isRecording = false;
+          runtime.mp3FilePath = "";
+          retryRecord();
+        }
+        if (runtime.success_cb || runtime.fail_cb){
+          debugLog("restart detect");
+          reDoCheck();
+        }
+      }
+    } catch (e) {
+      debugLog("error in buyfull onShow: " + JSON.stringify(e));
     }
+    if (this.oldOnShow) {
+      try {
+        this.oldOnShow(options);
+      } catch (e) {
 
+      }
+    }
+  }
+
+  function onHide(options) {
+    try {
+      debugLog("buyfull onHide");
+      if (!runtime.suspended) {
+        runtime.suspended = true;
+      }
+    } catch (e) {
+      debugLog("error in buyfull onHide: " + JSON.stringify(e));
+    }
+    if (this.oldOnHide) {
+      try {
+        this.oldOnHide(options);
+      } catch (e) {
+
+      }
+    }
+  }
+
+  function registerAppEventHandler(){
+    var oldOnShow = getApp().onShow;
+    var oldOnHide = getApp().onHide;
+
+    getApp().onShow = onShow.bind({
+      oldOnShow: oldOnShow
+    })
+    getApp().onHide = onHide.bind({
+      oldOnHide: oldOnHide
+    });
+  }
+
+
+  function destoryRecorder() {
+    //don't use it anymore
+  }
+
+  function retryRecord(){
+    if (runtime.suspended)
+      return;
+    setTimeout(function(){
+      doRecord(true);
+    }, 1);
   }
 
   function doRecord(isRetry) {
@@ -679,87 +754,103 @@
       return;
 
     debugLog("doRecord");
-    runtime.isRecording = true;
-    if (!isRetry) {
-      runtime.lastRecordTime = Date.now();
-    }
-
     const recordManager = wx.getRecorderManager();
 
     if (!runtime.hasRecordInited) {
       runtime.hasRecordInited = true;
+
+      recordManager.onStart(() => {
+        debugLog('recorder on start');
+        runtime.lastRecordEvent = "ONSTART";
+        runtime.lastRecordError = null
+        runtime.lastRecordTime = Date.now();
+        runtime.isRecording = true;
+      });
+
       recordManager.onError((errMsg) => {
-        if (runtime.mp3FilePath == '') {
-          if (!runtime.isRecording) {
-            //if we have error after recording , do nothing
-            return;
-          }
-          if (errMsg && errMsg.errCode && errMsg.errCode == 560557684) {
-            //ios return to background
-            debugLog(1);
-          }
-          else if (errMsg) {
-            debugLog(3);
-            console.error(errMsg);
-            //retry record within 2 sec if possible
-            if ((Date.now() - runtime.lastRecordTime) < 2000) {
-              debugLog("on error retry record");
+        debugLog("record on error:" + JSON.stringify(errMsg));
+        runtime.lastRecordEvent = "ONERROR";
+        if (errMsg && errMsg.errMsg)
+          runtime.lastRecordError = errMsg.errMsg.toString();
 
-              setTimeout(function () {
-                if (this != "operateRecorder:fail:audio is stop, don't stop record again") {
-                  debugLog("error stop");
-                  wx.getRecorderManager().stop();
-                }
-                if (this != "operateRecorder:fail:audio is recording, don't start record again") {
-                  debugLog("error start");
-                  wx.getRecorderManager().start(runtime.record_options);
-                } else {
-                  debugLog("4");
-                  //do fail logic
-                  runtime.isRecording = false;
-                  runtime.mp3FilePath = "ERROR_RECORD";
-                  reDoCheck();
-                }
-              }.bind(errMsg.errMsg.toString()), 100);
-              return;
-            } else {
-              debugLog("5");
-              console.error(errMsg);
-            }
-          } else {
-            debugLog(12);
-          }
-
-          debugLog("13");
-          runtime.isRecording = false;
-          runtime.mp3FilePath = "ERROR_RECORD";
+        if (!runtime.isRecording) {
+          //only deal error if not started
+          retryRecord();
         }
-        reDoCheck();
-      })
+      });
 
       recordManager.onPause(() => {
         debugLog("on pause");
-        runtime.isRecording = false;
-        if (runtime.mp3FilePath == '') {
-          runtime.mp3FilePath = "ERROR_RECORD";
+        runtime.lastRecordEvent = "ONPAUSE";
+        runtime.lastRecordError = null;
+
+        if (runtime.isRecording) {
+          //if it's not onhide, there must be something wrong
+          if (!runtime.suspended){
+            runtime.isRecording = false;
+            runtime.mp3FilePath = "ERROR_RECORD";
+            reDoCheck();
+          }
         }
-        reDoCheck();
-      })
+      });
 
       recordManager.onStop((res) => {
-        runtime.isRecording = false;
-        if (runtime.mp3FilePath == '') {
-          if (res.duration < runtime.record_options.duration || res.fileSize <= 0) {
-            console.error("Record on stop:" + JSON.stringify(res));
-            runtime.mp3FilePath = "ERROR_RECORD";
-          } else {
-            runtime.mp3FilePath = res.tempFilePath;
+        debugLog("onStop");
+        runtime.lastRecordEvent = "ONSTOP";
+        runtime.lastRecordError = null;
+
+        if (runtime.isRecording){
+          runtime.isRecording = false;
+          if (runtime.mp3FilePath == '') {
+            if (res.duration < runtime.record_options.duration || res.fileSize <= 0) {
+              console.error("Record on stop:" + JSON.stringify(res));
+              runtime.mp3FilePath = "ERROR_RECORD";
+            } else {
+              runtime.mp3FilePath = res.tempFilePath;
+            }
           }
         }
         reDoCheck();
-      })
+      });
     }
-    wx.getRecorderManager().start(runtime.record_options);
+    doStartRecorder(isRetry);
+  }
+
+  function doStartRecorder(isRetry){
+    debugLog("doStartRecorder: " + runtime.lastRecordEvent );
+    if (runtime.lastRecordEvent == "ONSTART") {
+      //if time is too long, that's something wrong
+      if ((Date.now() - runtime.lastRecordTime) < 2000) {
+        runtime.isRecording = true;
+      } else {
+        wx.getRecorderManager().stop();
+        runtime.lastRecordEvent = "STOP";
+      }
+    } else if (runtime.lastRecordEvent == "" || runtime.lastRecordEvent == "ONSTOP") {
+      wx.getRecorderManager().start(runtime.record_options);
+      runtime.lastRecordEvent = "START";
+    } else if (runtime.lastRecordEvent == "ONPAUSE") {
+      wx.getRecorderManager().stop();
+      runtime.lastRecordEvent = "STOP";
+    } else if (runtime.lastRecordEvent == "ONERROR") {
+      if ((Date.now() - runtime.lastRecordTime) > 2000) {
+        //onerror take too much time, return record error
+        runtime.mp3FilePath = "ERROR_RECORD";
+        reDoCheck();
+        return;
+      }
+      if (runtime.lastRecordError != "operateRecorder:fail:audio is stop, don't stop record again") {
+        wx.getRecorderManager().stop();
+        runtime.lastRecordEvent = "STOP";
+        return;
+      }
+      if (runtime.lastRecordError != "operateRecorder:fail:audio is recording, don't start record again") {
+        wx.getRecorderManager().start(runtime.record_options);
+        runtime.lastRecordEvent = "START";
+        return;
+      }
+    }
+
   }
 
   function uploadURLFromRegionCode(code) {
@@ -805,6 +896,8 @@
       name: 'file',
       formData: formData,
       success: function (res) {
+        if (!runtime.isUploading)
+          return;
         clearAbortTimer();
         runtime.requestTask = null;
         runtime.isUploading = false;
@@ -840,6 +933,8 @@
       },
       fail: function (error) {
         console.error(JSON.stringify(error))
+        if (!runtime.isUploading)
+          return;
         clearAbortTimer();
         runtime.requestTask = null;
         runtime.isUploading = false;
@@ -948,6 +1043,8 @@
     runtime.requestTask = wx.request({
       url: detectUrl,
       success: function (res) {
+        if (!runtime.isDetecting)
+          return;
         clearAbortTimer();
         runtime.isDetecting = false;
         runtime.requestTask = null;
@@ -973,6 +1070,8 @@
       },
       fail: function (error) {
         console.error(JSON.stringify(error))
+        if (!runtime.isDetecting)
+          return;
         clearAbortTimer();
         runtime.isDetecting = false;
         runtime.requestTask = null;
