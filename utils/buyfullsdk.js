@@ -330,7 +330,7 @@
       //incase some unknow exception,dead line is 10s
       resetRuntime();
     }
-    if (runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting) {
+    if (runtime.success_cb || runtime.fail_cb) {
       safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
@@ -750,7 +750,7 @@
   }
 
   function doRecord(isRetry) {
-    if (runtime.isRecording)
+    if (runtime.isRecording || runtime.suspended)
       return;
 
     debugLog("doRecord");
@@ -818,7 +818,13 @@
 
   function doStartRecorder(isRetry){
     debugLog("doStartRecorder: " + runtime.lastRecordEvent );
-    if (runtime.lastRecordEvent == "ONSTART") {
+    if (runtime.lastRecordEvent == "START"){
+      //if time is too long, that's something wrong
+      if ((Date.now() - runtime.lastRecordTime) > 2000) {
+        wx.getRecorderManager().stop();
+        runtime.lastRecordEvent = "STOP";
+      }
+    }else if (runtime.lastRecordEvent == "ONSTART") {
       //if time is too long, that's something wrong
       if ((Date.now() - runtime.lastRecordTime) < 2000) {
         runtime.isRecording = true;
