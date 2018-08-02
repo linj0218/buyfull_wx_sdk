@@ -85,6 +85,8 @@
     suspended: false,
     lastRecordEvent: "",
     lastRecordError: null,
+    checkFormatData: null,
+    hasSaveRecordConfig: false,
   }
 
   function resetRuntime() {
@@ -153,6 +155,8 @@
         })
       }
     });
+
+    initcheckFormatData();
     updateConfigWithOptions(options);
     registerAppEventHandler();
     resetRuntime();
@@ -221,84 +225,7 @@
 
 
   function detect(options, success, fail) {
-    if (runtime.deviceInfo == null) {
-      try {
-        var res = wx.getSystemInfoSync()
-        runtime.deviceInfo = res;
-        runtime.deviceInfo.str = JSON.stringify(res);
-        if (runtime.deviceInfo.platform == "ios") {
-          runtime.record_options.duration = 1100;
-          runtime.record_options.audioSource = "buildInMic"
-        } else if (runtime.deviceInfo.platform == "android") {
-          try{
-            var needHint = false;
-            var android7 = false;
-            
-            var system = runtime.deviceInfo.system.split(" ");
-            if (system.length >= 2) {
-              var androidversion = system[1].split(".");
-              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
-                  //it's greater than 7.0
-                android7 = true;
-              }
-            }
-
-            var brand = runtime.deviceInfo.brand.toLowerCase();
-            if (brand == "oppo"){
-              runtime.record_options.audioSource = "camcorder";
-              runtime.record_options.duration = 1350;
-              needHint = true;
-            } else if (brand == "vivo"){
-              runtime.record_options.duration = 1250;
-            } else if (brand == "xiaomi"){
-              runtime.record_options.duration = 1250;
-              if (android7) {
-                runtime.record_options.audioSource = "unprocessed";
-                runtime.record_options.duration = 1350;
-              }
-            } else if (brand == "huawei" || brand == "honor" || brand == "oneplus"){
-              if (android7){
-                runtime.record_options.audioSource = "unprocessed";
-                runtime.record_options.duration = 1350;
-                needHint = true;
-              }
-            }
-            
-            var wxversion = runtime.deviceInfo.version.split(".");
-            if (needHint && !runtime.hasShowVersionHint){
-              //check if weixin is greater than 6.6.7
-              if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6){
-                if (wxversion.length == 2 && parseInt(wxversion[1]) > 6){
-                  needHint = false;
-                } else if (wxversion.length >= 3 && parseInt(wxversion[2]) >= 7){
-                  needHint = false;
-                }
-              }
-              if (needHint && !runtime.hasShowVersionHint){
-                runtime.wxVersionTooLow = true;
-                wx.showModal({
-                  title: '提示',
-                  content: '微信版本低于6.6.7，请升级微信后才能正常使用',
-                  showCancel: false,
-                  confirmText: "知道了",
-                  success: function (res) {
-                    runtime.hasShowVersionHint = true;
-                  }
-                });
-              }
-            }
-
-          }catch(e){
-
-          }
-        }
-        debugLog(runtime.deviceInfo.str);
-      } catch (e) {
-        debugLog("Cant get device info");
-        runtime.deviceInfo = {};
-        runtime.deviceInfo.str = "";
-      }
-    }
+    
     if (!config.appKey || config.appKey == '') {
       safe_call(fail, err.INVALID_APPKEY);
       return;
@@ -374,8 +301,350 @@
     return true;
   }
 
+  function initcheckFormatData(){
+    if (runtime.deviceInfo == null) {
+      try {
+        var res = wx.getSystemInfoSync()
+        runtime.deviceInfo = res;
+        runtime.deviceInfo.str = JSON.stringify(res);
+        if (runtime.deviceInfo.platform == "ios") {
+          runtime.checkFormatData = [{ priority: 0, src:"buildInMic", duration:1150}];
+        } else if (runtime.deviceInfo.platform == "android") {
+          try {
+            var needHint = false;
+            var android7 = false;
+            var wx667 = false;
+
+            var system = runtime.deviceInfo.system.split(" ");
+            if (system.length >= 2) {
+              var androidversion = system[1].split(".");
+              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
+                //it's greater than 7.0
+                android7 = true;
+              }
+            }
+
+            var wxversion = runtime.deviceInfo.version.split(".");
+            //check if weixin is greater than 6.6.7
+            if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6) {
+              if (wxversion.length == 2 && parseInt(wxversion[1]) > 6) {
+                wx667 = true;
+              } else if (wxversion.length >= 3 && parseInt(wxversion[2]) >= 7) {
+                wx667 = true;
+              }
+            }
+
+            runtime.deviceInfo.android7 = android7;
+            runtime.deviceInfo.wx667 = wx667;
+
+            var brand = runtime.deviceInfo.brand.toLowerCase();
+
+            if (brand == "oppo") {
+              needHint = true;
+            } else if (brand == "huawei" || brand == "honor" || brand == "oneplus") {
+              if (android7) {
+                needHint = true;
+              }
+            }
+
+            if (needHint && !wx667) {
+              showWX667Hint();
+            }
+
+            loadRecordConfig();
+          } catch (e) {
+
+          }
+        }
+        debugLog(runtime.deviceInfo.str);
+      } catch (e) {
+        debugLog("Cant get device info");
+        runtime.deviceInfo = {};
+        runtime.deviceInfo.str = "";
+      }
+    }
+  }
+
+  function showWX667Hint(){
+    if (!runtime.hasShowVersionHint) {
+      runtime.wxVersionTooLow = true;
+      wx.showModal({
+        title: '提示',
+        content: '微信版本低于6.6.7，请升级微信后才能正常使用',
+        showCancel: false,
+        confirmText: "知道了",
+        success: function (res) {
+          runtime.hasShowVersionHint = true;
+        }
+      });
+    }
+  }
+
+  function showNotSupportHint() {
+    if (!runtime.hasShowVersionHint) {
+      runtime.wxVersionTooLow = true;
+      wx.showModal({
+        title: '提示',
+        content: '当前设备无法使用声波检测',
+        showCancel: false,
+        confirmText: "知道了",
+        success: function (res) {
+          runtime.hasShowVersionHint = true;
+        }
+      });
+    }
+  }
+
+  function loadRecordConfig(){
+    //load local config first
+    try {
+      var record_option_json = wx.getStorageSync("buyfull_record_option")
+      if (record_option_json) {
+        var newconfig = JSON.parse(record_option_json)
+        if (checkRecordConfig(newconfig))
+          runtime.checkFormatData = newconfig;
+      }
+    } catch (e) {
+    }
+    //load global model config then
+    if (!runtime.checkFormatData){
+      var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase());
+      var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase());
+      var configurl = "https://cloud.buyfull.cc/android_config/" + model + "_" + system + ".json";
+      runtime.requestTask = wx.request({
+        url: configurl,
+        success: function (res) {
+          clearAbortTimer();
+          runtime.requestTask = null;
+          try {
+              var newconfig = res.data
+              if (checkRecordConfig(newconfig)){
+                runtime.checkFormatData = newconfig;
+                debugLog("load config success: " + configurl);
+                reDoCheck();
+              }else{
+                loadDefaultRecordConfig();
+              }
+          } catch (e) {
+            loadDefaultRecordConfig();
+          }
+        },
+        fail: function (error) {
+          clearAbortTimer();
+          debugLog("load config fail: " + configurl);
+          runtime.requestTask = null;
+          loadDefaultRecordConfig();
+        }
+      });
+      setAbortTimer();
+    }
+    //modify config priority after each record
+  }
+
+  function saveRecordConfig() {
+    //save local config
+    if (runtime.hasSaveRecordConfig){
+      return;
+    }
+    runtime.hasSaveRecordConfig = true;
+    try {
+      var json = JSON.stringify(runtime.checkFormatData);
+      wx.setStorageSync("buyfull_record_option", json);
+    } catch (e) {
+
+    }
+  }
+
+  function checkRecordConfig(config){
+    try{
+      if (config && config.length >= 1){
+        for (var index = 0; index < config.length; ++index) {
+          config[index].power = 0;
+          config[index].success = 0;
+          config[index].startTime = 0;
+        }
+        return true;
+      }
+    }catch(e){
+      
+    }
+    return false;
+  }
+
+  function loadDefaultRecordConfig(){
+    //try default model config then
+    var brand = runtime.deviceInfo.brand.toLowerCase();
+    if (brand == "oppo") {
+      runtime.checkFormatData = [
+        { priority: 0, src: "unprocessed",  duration: 1350 },
+        { priority: 2, src: "camcorder",  duration: 1350 },
+        { priority: 1, src: "auto",  duration: 1350 },
+      ];
+    } else if (brand == "vivo") {
+      runtime.checkFormatData = [
+        { priority: 0, src: "unprocessed",  duration: 1350 },
+        { priority: 1, src: "camcorder",  duration: 1250 },
+        { priority: 2, src: "auto",  duration: 1250 },
+      ];
+    } else if (brand == "xiaomi") {
+      runtime.checkFormatData = [
+        { priority: 0, src: "unprocessed",  duration: 1350 },
+        { priority: 1, src: "camcorder",  duration: 1250 },
+        { priority: 2, src: "auto",  duration: 1250 },
+      ];
+    } else if (brand == "huawei" || brand == "honor" || brand == "oneplus") {
+      runtime.checkFormatData = [
+        { priority: 2, src: "unprocessed",  duration: 1350 },
+        { priority: 1, src: "camcorder",  duration: 1250 },
+        { priority: 0, src: "auto",  duration: 1250 },
+      ];
+    }else{
+      runtime.checkFormatData = [
+        { priority: 2, src: "unprocessed",  duration: 1350 },
+        { priority: 1, src: "camcorder",  duration: 1350 },
+        { priority: 0, src: "auto",  duration: 1350 },
+      ];
+    }
+    if (!runtime.deviceInfo.android7) {
+      runtime.checkFormatData.shift();
+    }
+    if (!runtime.deviceInfo.wx667){
+      runtime.checkFormatData.shift();
+    }
+    checkRecordConfig(runtime.checkFormatData);
+
+    reDoCheck();
+  }
+
+  function handleSuccessRecord(retCode, retInfo){
+    //if succeed , improve priority
+    if (runtime.deviceInfo.platform == "ios") {
+      return;
+    }
+    runtime.checkFormatData[0].success += 10;
+    if (runtime.checkFormatData[0].success > 60){
+      runtime.checkFormatData[0].success = 60;
+    }
+    //saveRecordConfig();
+  }
+
+  function handleFailRecord(retCode, retInfo){
+    if (runtime.deviceInfo.platform == "ios"){
+      return;
+    }
+    if (retCode == 10){
+      //record is empty
+      if (!runtime.deviceInfo.wx667){
+        //nothing we can do if wx is below 6.6.7
+        showWX667Hint();
+      }else{
+        runtime.checkFormatData[0].power = -120;
+        //if only one option left, show not support
+        if (runtime.checkFormatData.length == 1){
+          showNotSupportHint();
+        }
+      }
+        
+      return;
+    }
+
+    var info = retInfo.split("|")
+    var power = 0;
+    var startTime = 0;
+    var moreLength = 0;
+    if (retCode == 0){
+      startTime = parseInt(info[0])
+      power = parseFloat(info[1])
+    }else if (retCode == 11){
+      startTime = parseInt(info[0])
+      moreLength = parseInt(info[1])
+    }
+
+    runtime.checkFormatData[0].startTime = startTime;
+
+    if (retCode == 11){
+      //record is too short
+      if (retCode == 11 && (startTime <= 500 && moreLength <= 1000)) {
+        if (runtime.checkFormatData[0].duration == 2000){
+          runtime.checkFormatData[0].power = -120;
+        }else{
+          runtime.checkFormatData[0].duration += (((moreLength + 50) / 50) * 50);
+          if (runtime.checkFormatData[0].duration > 2000) {
+            runtime.checkFormatData[0].duration = 2000;
+          }
+        }
+
+        return;
+      }else{
+        runtime.checkFormatData[0].power = -120;
+        runtime.checkFormatData[0].duration = 2000;
+        //this option is not valid now
+        if (runtime.checkFormatData.length == 1) {
+          showNotSupportHint();
+        }
+      }
+      return;
+    }
+
+    if (retCode == 0){
+      if (power != 0){
+        runtime.checkFormatData[0].power = power;
+      }
+
+      if (runtime.checkFormatData[0].success > 0){
+        --runtime.checkFormatData[0].success;
+      }
+    }
+  }
+
+  function getScore(config){
+    var success_score = config.success;
+    if (success_score > 60) {
+      success_score = 60;
+    } else if (success_score < 0) {
+      success_score = 0;
+    }
+
+    var power_score = 0;
+    if (config.power >= 0){
+      power_score = 20;
+    }else if (config.power < -120){
+      power_score = 0;
+    }else{
+      power_score = ((120 + config.power) / 120.0) * 20
+    }
+
+    var duration_score = 0;
+    if (config.duration <= 1000){
+      duration_score = 8;
+    }else if (config.duration >= 2000){
+      duration_score = 0;
+    }else{
+      duration_score = (2000 - config.duration) / 1000.0 * 8
+    }
+
+    var start_score = 0;
+    if (config.startTime <= 0){
+      start_score = 10;
+    }else if (config.startTime >= 1000){
+      start_score = 0;
+    }else{
+      start_score = (1000 - config.startTime) / 1000.0 * 10
+    }
+
+    return config.priority + success_score + power_score + duration_score + start_score;
+  }
+
+  function compareRecordConfig(a, b) {
+    var checkVal1 = getScore(a);
+    var checkVal2 = getScore(b);
+    if (checkVal1 < checkVal2) return 1;
+    if (checkVal1 > checkVal2) return -1;
+    return 0;
+  }
+  
   function doCheck() {
-    if (runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting)
+    if (!runtime.checkFormatData || runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting)
       return;
 
 
@@ -816,8 +1085,18 @@
     doStartRecorder(isRetry);
   }
 
+
   function doStartRecorder(isRetry){
-    debugLog("doStartRecorder: " + runtime.lastRecordEvent );
+    //each time do sort 
+    if (runtime.checkFormatData.length > 1){
+      runtime.checkFormatData.sort(compareRecordConfig);
+      debugLog("sort config: " + JSON.stringify(runtime.checkFormatData));
+    }
+
+    runtime.record_options.audioSource = runtime.checkFormatData[0].src;
+    runtime.record_options.duration = runtime.checkFormatData[0].duration;
+    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.lastRecordEvent );
+
     if (runtime.lastRecordEvent == "START"){
       //if time is too long, that's something wrong
       if ((Date.now() - runtime.lastRecordTime) > 2000) {
@@ -1060,12 +1339,17 @@
           debugLog("data is:" + JSON.stringify(res.data));
           if (code == 0 && result && result.length > 0) {
             runtime.resultUrl = result;
+            handleSuccessRecord(code, res.data.info)
           } else {
             if (code == 100) {
               //wrong buyfull token
-              runtime.buyfullToken = "REFRESH"
+              runtime.buyfullToken = "REFRESH";
             } else if (code == 0) {
-              runtime.resultUrl = "ERROR_NO_RESULT"
+              handleFailRecord(code, res.data.info);
+              runtime.resultUrl = "ERROR_NO_RESULT";
+            } else if (code >= 10 && code <= 20) {
+              handleFailRecord(code, res.data.info);
+              runtime.resultUrl = "ERROR_NO_RESULT";
             } else {
               runtime.resultUrl = "ERROR_SERVER";
             }
