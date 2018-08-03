@@ -156,10 +156,21 @@
       }
     });
 
-    initcheckFormatData();
-    updateConfigWithOptions(options);
-    registerAppEventHandler();
-    resetRuntime();
+    try {
+      updateConfigWithOptions(options);
+    } catch (e) { }
+
+    try {
+      initcheckFormatData();
+    } catch (e) { }
+
+    try {
+      registerAppEventHandler();
+    } catch (e) { }
+
+    try {
+      resetRuntime();
+    } catch (e) { }
   }
 
   function destory() {
@@ -408,9 +419,10 @@
     }
     //load global model config then
     if (!runtime.checkFormatData){
-      var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase());
-      var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase());
-      var configurl = "https://cloud.buyfull.cc/android_config/" + model + "_" + system + ".json";
+      var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ","_"));
+      var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase().replaceAll(" ", "_"));
+      var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase().replaceAll(" ", "_"));
+      var configurl = "https://cloud.buyfull.cc/android_config/" + brand + "_" + model + "_" + system + ".json";
       runtime.requestTask = wx.request({
         url: configurl,
         success: function (res) {
@@ -419,9 +431,11 @@
           try {
               var newconfig = res.data
               if (checkRecordConfig(newconfig)){
+                debugLog("load config: " + configurl);
                 runtime.checkFormatData = newconfig;
-                debugLog("load config success: " + configurl);
-                reDoCheck();
+                if (runtime.success_cb || runtime.fail_cb) {
+                  reDoCheck();
+                }
               }else{
                 loadDefaultRecordConfig();
               }
@@ -474,6 +488,7 @@
   function loadDefaultRecordConfig(){
     //try default model config then
     var brand = runtime.deviceInfo.brand.toLowerCase();
+    debugLog("load default config: " + brand);
     if (brand == "oppo") {
       runtime.checkFormatData = [
         { priority: 0, src: "unprocessed",  duration: 1350 },
@@ -494,9 +509,9 @@
       ];
     } else if (brand == "huawei" || brand == "honor" || brand == "oneplus") {
       runtime.checkFormatData = [
-        { priority: 2, src: "unprocessed",  duration: 1350 },
-        { priority: 1, src: "camcorder",  duration: 1250 },
-        { priority: 0, src: "auto",  duration: 1250 },
+        { priority: 2, src: "unprocessed",  duration: 1500 },
+        { priority: 1, src: "camcorder",  duration: 1450 },
+        { priority: 0, src: "auto",  duration: 1350 },
       ];
     }else{
       runtime.checkFormatData = [
@@ -513,7 +528,9 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    reDoCheck();
+    if (runtime.success_cb || runtime.fail_cb) {
+      reDoCheck();
+    }
   }
 
   function handleSuccessRecord(retCode, retInfo){
@@ -521,7 +538,16 @@
     if (runtime.deviceInfo.platform == "ios") {
       return;
     }
-    runtime.checkFormatData[0].success += 10;
+    var info = retInfo.split("|")
+    var power = 0;
+    var startTime = 0;
+
+    startTime = parseInt(info[0])
+    power = parseFloat(info[1])
+    
+    runtime.checkFormatData[0].startTime = startTime;
+    runtime.checkFormatData[0].power = power;
+    runtime.checkFormatData[0].success += 20;
     if (runtime.checkFormatData[0].success > 60){
       runtime.checkFormatData[0].success = 60;
     }
