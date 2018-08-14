@@ -1340,11 +1340,12 @@
       return null;
     }
 
-    var userID = encodeURIComponent(runtime.hash);
+    var userID = runtime.hash;
     if (runtime.userID){
-      userID += ":" + encodeURIComponent(runtime.userID);
+      userID += ":" + runtime.userID;
     }
-    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + userID + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
+    
+    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(userID) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
     if (runtime.userInfo != ""){
       url += "/" + encodeURIComponent(runtime.userInfo);
     }
