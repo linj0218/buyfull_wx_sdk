@@ -1,5 +1,7 @@
 // created by ycq
 (function () {
+  // var ar = require("./aurora.js");
+  // var mp3 = require("./mp3.js");
 
   var err = {
     HAS_NO_RESULT: 0,//检测无结果
@@ -68,7 +70,7 @@
       sampleRate: 44100,
       numberOfChannels: 1,
       encodeBitRate: 320000,
-      format: 'mp3'
+      format: 'mp3',
     },
     hasRecordInited: false,
     deviceInfo: null,
@@ -87,6 +89,7 @@
     lastRecordError: null,
     checkFormatData: null,
     hasSaveRecordConfig: false,
+    userID: null,
   }
 
   function resetRuntime() {
@@ -236,7 +239,7 @@
 
 
   function detect(options, success, fail) {
-    
+
     if (!config.appKey || config.appKey == '') {
       safe_call(fail, err.INVALID_APPKEY);
       return;
@@ -308,6 +311,10 @@
       if (!checkRegionCode(runtime.region)){
         return false;
       }
+
+      if (options.userID) {
+        runtime.userID = options.userID;
+      }
     }
     return true;
   }
@@ -319,7 +326,11 @@
         runtime.deviceInfo = res;
         runtime.deviceInfo.str = JSON.stringify(res);
         if (runtime.deviceInfo.platform == "ios") {
-          runtime.checkFormatData = [{ priority: 0, src:"buildInMic", duration:1150}];
+          runtime.checkFormatData = [
+            { priority: 1, src: "auto", duration: 1200 },
+            { priority: 0, src: "buildInMic", duration: 1200 },
+            
+          ];
         } else if (runtime.deviceInfo.platform == "android") {
           try {
             var needHint = false;
@@ -419,7 +430,7 @@
     }
     //load global model config then
     if (!runtime.checkFormatData){
-      var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ","_"));
+      var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ", "_"));
       var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase().replaceAll(" ", "_"));
       var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase().replaceAll(" ", "_"));
       var configurl = "https://cloud.buyfull.cc/android_config/" + brand + "_" + model + "_" + system + ".json";
@@ -429,16 +440,16 @@
           clearAbortTimer();
           runtime.requestTask = null;
           try {
-              var newconfig = res.data
-              if (checkRecordConfig(newconfig)){
-                debugLog("load config: " + configurl);
-                runtime.checkFormatData = newconfig;
-                if (runtime.success_cb || runtime.fail_cb) {
-                  reDoCheck();
-                }
-              }else{
-                loadDefaultRecordConfig();
+            var newconfig = res.data
+            if (checkRecordConfig(newconfig)) {
+              debugLog("load config: " + configurl);
+              runtime.checkFormatData = newconfig;
+              if (runtime.success_cb || runtime.fail_cb) {
+                reDoCheck();
               }
+            } else {
+              loadDefaultRecordConfig();
+            }
           } catch (e) {
             loadDefaultRecordConfig();
           }
@@ -452,7 +463,6 @@
       });
       setAbortTimer();
     }
-    //modify config priority after each record
   }
 
   function saveRecordConfig() {
@@ -462,6 +472,8 @@
     }
     runtime.hasSaveRecordConfig = true;
     try {
+      //only save priority
+      //TODO
       var json = JSON.stringify(runtime.checkFormatData);
       wx.setStorageSync("buyfull_record_option", json);
     } catch (e) {
@@ -489,42 +501,52 @@
     //try default model config then
     var brand = runtime.deviceInfo.brand.toLowerCase();
     debugLog("load default config: " + brand);
+    runtime.checkFormatData = [
+      { priority: 5, src: "unprocessed", duration: 1550 },
+      { priority: 4, src: "camcorder", duration: 1550 },
+      { priority: 3, src: "mic", duration: 1550 },
+      { priority: 2, src: "voice_recognition", duration: 1550 },
+      { priority: 1, src: "voice_communication", duration: 1550 },
+      { priority: 0, src: "auto", duration: 1550 },
+    ];
+
     if (brand == "oppo") {
       runtime.checkFormatData = [
-        { priority: 0, src: "unprocessed",  duration: 1350 },
-        { priority: 2, src: "camcorder",  duration: 1350 },
-        { priority: 1, src: "auto",  duration: 1350 },
+        { priority: 3, src: "unprocessed", duration: 1550 },
+        { priority: 5, src: "camcorder", duration: 1550 },
+        { priority: 4, src: "mic", duration: 1550 },
+        { priority: 0, src: "auto", duration: 1550 },
       ];
     } else if (brand == "vivo") {
       runtime.checkFormatData = [
-        { priority: 0, src: "unprocessed",  duration: 1350 },
-        { priority: 1, src: "camcorder",  duration: 1250 },
-        { priority: 2, src: "auto",  duration: 1250 },
+        { priority: 0, src: "unprocessed", duration: 1550 },
+        { priority: 3, src: "camcorder", duration: 1550 },
+        { priority: 4, src: "mic", duration: 1550 },
+        { priority: 5, src: "auto", duration: 1550 },
       ];
-    } else if (brand == "xiaomi") {
+    } else if (brand == "xiaomi" || brand == "mi") {
       runtime.checkFormatData = [
-        { priority: 0, src: "unprocessed",  duration: 1350 },
-        { priority: 1, src: "camcorder",  duration: 1250 },
-        { priority: 2, src: "auto",  duration: 1250 },
+        { priority: 0, src: "unprocessed", duration: 1550 },
+        { priority: 4, src: "camcorder", duration: 1550 },
+        { priority: 3, src: "mic", duration: 1550 },
+        { priority: 5, src: "auto", duration: 1550 },
       ];
-    } else if (brand == "huawei" || brand == "honor" || brand == "oneplus") {
+    } else if (brand == "huawei" || brand == "honor") {
       runtime.checkFormatData = [
-        { priority: 2, src: "unprocessed",  duration: 1500 },
-        { priority: 1, src: "camcorder",  duration: 1450 },
-        { priority: 0, src: "auto",  duration: 1350 },
-      ];
-    }else{
-      runtime.checkFormatData = [
-        { priority: 2, src: "unprocessed",  duration: 1350 },
-        { priority: 1, src: "camcorder",  duration: 1350 },
-        { priority: 0, src: "auto",  duration: 1350 },
+        { priority: 5, src: "unprocessed", duration: 1550 },
+        { priority: 3, src: "voice_recognition", duration: 1550 },
+        { priority: 4, src: "camcorder", duration: 1550 },
+        { priority: 0, src: "auto", duration: 1550 },
       ];
     }
+    
     if (!runtime.deviceInfo.android7) {
       runtime.checkFormatData.shift();
     }
     if (!runtime.deviceInfo.wx667){
-      runtime.checkFormatData.shift();
+      runtime.checkFormatData = [
+        { priority: 0, src: "auto", duration: 1550 },
+      ];
     }
     checkRecordConfig(runtime.checkFormatData);
 
@@ -535,9 +557,6 @@
 
   function handleSuccessRecord(retCode, retInfo){
     //if succeed , improve priority
-    if (runtime.deviceInfo.platform == "ios") {
-      return;
-    }
     var info = retInfo.split("|")
     var power = 0;
     var startTime = 0;
@@ -551,13 +570,15 @@
     if (runtime.checkFormatData[0].success > 60){
       runtime.checkFormatData[0].success = 60;
     }
-    //saveRecordConfig();
+    // saveRecordConfig();
   }
 
   function handleFailRecord(retCode, retInfo){
-    if (runtime.deviceInfo.platform == "ios"){
+    if (retCode == 9){
+      runtime.checkFormatData[0].power = -120;
       return;
     }
+
     if (retCode == 10){
       //record is empty
       if (!runtime.deviceInfo.wx667){
@@ -591,19 +612,20 @@
     if (retCode == 11){
       //record is too short
       if (retCode == 11 && (startTime <= 500 && moreLength <= 1000)) {
-        if (runtime.checkFormatData[0].duration == 2000){
+        if (runtime.checkFormatData[0].duration == 1800){
           runtime.checkFormatData[0].power = -120;
         }else{
           runtime.checkFormatData[0].duration += (((moreLength + 50) / 50) * 50);
-          if (runtime.checkFormatData[0].duration > 2000) {
-            runtime.checkFormatData[0].duration = 2000;
+          if (runtime.checkFormatData[0].duration > 1800) {
+            runtime.checkFormatData[0].duration = 1800;
+            runtime.checkFormatData[0].power = -120;
           }
         }
 
         return;
       }else{
         runtime.checkFormatData[0].power = -120;
-        runtime.checkFormatData[0].duration = 2000;
+        runtime.checkFormatData[0].duration = 1800;
         //this option is not valid now
         if (runtime.checkFormatData.length == 1) {
           showNotSupportHint();
@@ -643,10 +665,10 @@
     var duration_score = 0;
     if (config.duration <= 1000){
       duration_score = 8;
-    }else if (config.duration >= 2000){
+    }else if (config.duration >= 1800){
       duration_score = 0;
     }else{
-      duration_score = (2000 - config.duration) / 1000.0 * 8
+      duration_score = (1800 - config.duration) / 1000.0 * 8
     }
 
     var start_score = 0;
@@ -672,7 +694,6 @@
   function doCheck() {
     if (!runtime.checkFormatData || runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting)
       return;
-
 
     if (Date.now() - runtime.lastDetectTime > config.detectTimeout) {
       //incase deadloop
@@ -1098,9 +1119,10 @@
           runtime.isRecording = false;
           if (runtime.mp3FilePath == '') {
             if (res.duration < runtime.record_options.duration || res.fileSize <= 0) {
-              console.error("Record on stop:" + JSON.stringify(res));
+              debugLog("Record on stop error:" + JSON.stringify(res));
               runtime.mp3FilePath = "ERROR_RECORD";
             } else {
+              debugLog("Record on stop success:" + JSON.stringify(res));
               runtime.mp3FilePath = res.tempFilePath;
             }
           }
@@ -1193,13 +1215,15 @@
     }
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
+    var onlyFileName = fileName.split(".",1)[0]
+    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].duration + ".mp3"
 
     var formData = {
       'token': runtime.qiniuToken,
-      'key': fileName
+      'key': fileKey
     };
 
-    debugLog("doUpload: " + runtime.qiniuToken + " \n " + runtime.mp3FilePath + " \n" + runtime.uploadServer);
+    debugLog("doUpload: " + runtime.qiniuToken + " \n " + fileKey + " \n" + runtime.uploadServer);
 
     runtime.requestTask = wx.uploadFile({
       url: runtime.uploadServer,
@@ -1314,7 +1338,12 @@
     if (serverUrl == null) {
       return null;
     }
-    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(runtime.hash) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
+
+    var userID = encodeURIComponent(runtime.hash);
+    if (runtime.userID){
+      userID += ":" + runtime.userID
+    }
+    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + userID + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
     if (runtime.userInfo != ""){
       url += "/" + encodeURIComponent(runtime.userInfo);
     }
@@ -1373,7 +1402,7 @@
             } else if (code == 0) {
               handleFailRecord(code, res.data.info);
               runtime.resultUrl = "ERROR_NO_RESULT";
-            } else if (code >= 10 && code <= 20) {
+            } else if (code >= 9 && code <= 20) {
               handleFailRecord(code, res.data.info);
               runtime.resultUrl = "ERROR_NO_RESULT";
             } else {
