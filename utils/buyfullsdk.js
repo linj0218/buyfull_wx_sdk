@@ -1341,7 +1341,7 @@
 
     var userID = encodeURIComponent(runtime.hash);
     if (runtime.userID){
-      userID += ":" + runtime.userID
+      userID += ":" + encodeURIComponent(runtime.userID);
     }
     var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + userID + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
     if (runtime.userInfo != ""){
