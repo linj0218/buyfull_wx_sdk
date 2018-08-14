@@ -331,6 +331,7 @@
             { priority: 0, src: "buildInMic", duration: 1200 },
             
           ];
+          checkRecordConfig(runtime.checkFormatData);
         } else if (runtime.deviceInfo.platform == "android") {
           try {
             var needHint = false;
