@@ -177,8 +177,8 @@
   }
 
   function destory() {
-    destoryRecorder();
-    resetRuntime();
+    //destoryRecorder();
+    //resetRuntime();
   }
 
   String.prototype.replaceAll = function (FindText, RepText) {
