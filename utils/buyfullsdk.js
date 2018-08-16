@@ -556,7 +556,7 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    if (!noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
+    if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
       reDoCheck();
     }
   }
