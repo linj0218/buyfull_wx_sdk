@@ -82,7 +82,7 @@
     debugLog: '',
     hasShowAccessHint: false,
     hasShowVersionHint: false,
-    noRecordPermission: false,
+    noRecordPermission: true,
     wxVersionTooLow: false,
     suspended: false,
     lastRecordEvent: "",
@@ -133,6 +133,7 @@
             confirmText: "知道了",
             success: function (res3) {
               runtime.hasShowAccessHint = true;
+              wx.openSetting();
             }
           });
         }
@@ -257,31 +258,35 @@
       return;
     }
 
-    if (runtime.noRecordPermission){
-      safe_call(fail, err.NO_RECORD_PERMISSION);
-      return;
-    }
-
     if (runtime.wxVersionTooLow) {
       safe_call(fail, err.WX_VERSION_TOO_LOW);
       return;
     }
 
-    if (Date.now() - runtime.lastDetectTime > 10000) {
-      //incase some unknow exception,dead line is 10s
-      resetRuntime();
-    }
-    if (runtime.success_cb || runtime.fail_cb) {
-      safe_call(fail, err.DUPLICATE_DETECT);
-      return;
-    }
-    
-    resetRuntime();
+    wx.authorize({
+      scope: 'scope.record',
+      success: function () {
+        runtime.noRecordPermission = false;
 
-    runtime.success_cb = success;
-    runtime.fail_cb = fail;
-
-    doCheck();
+        if (Date.now() - runtime.lastDetectTime > 10000) {
+          //incase some unknow exception,dead line is 10s
+          resetRuntime();
+        }
+        if (runtime.success_cb || runtime.fail_cb) {
+          safe_call(fail, err.DUPLICATE_DETECT);
+          return;
+        }
+        resetRuntime();
+        runtime.success_cb = success;
+        runtime.fail_cb = fail;
+        doCheck();
+      },
+      fail: function (res) {
+        runtime.noRecordPermission = true;
+        resetRuntime();
+        safe_call(fail, err.NO_RECORD_PERMISSION);
+      }
+    });
   }
 
   function checkRegionCode(code) {
@@ -551,7 +556,7 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    if (runtime.success_cb || runtime.fail_cb) {
+    if (!noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
       reDoCheck();
     }
   }
@@ -1435,4 +1440,7 @@
     });
     setAbortTimer();
   }
+
+  ////////////////////////////////////////////////////////////////////
+  
 })();
