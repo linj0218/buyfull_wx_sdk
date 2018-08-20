@@ -355,7 +355,7 @@
             var wxversion = runtime.deviceInfo.version.split(".");
             //check if weixin is greater than 6.6.7
             if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6) {
-              if (wxversion.length == 2 && parseInt(wxversion[1]) > 6) {
+              if (wxversion.length >= 2 && parseInt(wxversion[1]) > 6) {
                 wx667 = true;
               } else if (wxversion.length >= 3 && parseInt(wxversion[2]) >= 7) {
                 wx667 = true;
@@ -1124,7 +1124,7 @@
         if (runtime.isRecording){
           runtime.isRecording = false;
           if (runtime.mp3FilePath == '') {
-            if (res.duration < runtime.record_options.duration || res.fileSize <= 0) {
+            if (res.duration < (runtime.record_options.duration - 200) || res.fileSize <= 0) {
               debugLog("Record on stop error:" + JSON.stringify(res));
               runtime.mp3FilePath = "ERROR_RECORD";
             } else {
