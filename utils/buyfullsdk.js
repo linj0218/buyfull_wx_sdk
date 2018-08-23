@@ -30,7 +30,7 @@
   var config = {
     appKey: '',
     buyfullTokenUrl: '',
-    detectTimeout: 5000,//总的超时
+    detectTimeout: 6000,//总的超时
     abortTimeout: 3000,//单个API请求的超时
     debugLog: false,//是否打印debuglog
     //
@@ -268,7 +268,7 @@
       success: function () {
         runtime.noRecordPermission = false;
 
-        if (Date.now() - runtime.lastDetectTime > 10000) {
+        if ((Date.now() - runtime.lastDetectTime) > 10000) {
           //incase some unknow exception,dead line is 10s
           resetRuntime();
         }
@@ -701,7 +701,7 @@
     if (!runtime.checkFormatData || runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting)
       return;
 
-    if (Date.now() - runtime.lastDetectTime > config.detectTimeout) {
+    if ((Date.now() - runtime.lastDetectTime) > config.detectTimeout) {
       //incase deadloop
       runtime.success_cb = null;
       var fail_cb = runtime.fail_cb;
