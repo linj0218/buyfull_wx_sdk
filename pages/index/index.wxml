@@ -1,10 +1,11 @@
 <!--index.wxml-->
 
 <scroll-view>
-
+<button class="btn-style" open-type="openSetting">打开录音设置</button>
  </scroll-view>
  
 
  <view class="record-style">
+  
  <button class="btn-style" bindtap='onclick'>检测</button>
  </view>

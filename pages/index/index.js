@@ -46,14 +46,23 @@ Page({
                     if (res.authSetting["scope.record"] === true) {
                       thiz.doDetect();
                     }
+                  },
+                  fail:(err) =>{
+                    thiz.doDetect();
                   }
                 })
               }
+            }, 
+            fail: function(err){
+              thiz.doDetect();
             }
           });
         }else{
           thiz.doDetect();
         }
+      },
+      fail:(err) =>{
+        thiz.doDetect();
       }
     });
     

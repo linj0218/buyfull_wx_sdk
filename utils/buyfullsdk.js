@@ -120,23 +120,32 @@
     runtime.mp3FilePath = '';
   }
 
+  function showNotAccessHint() {
+    if (!runtime.hasShowAccessHint) {
+      runtime.hasShowAccessHint = true;
+      wx.showModal({
+        title: '提示',
+        content: '请授权录音后才能正常使用',
+        showCancel: false,
+        confirmText: "知道了",
+        success: function (res3) {
+          wx.openSetting();
+        }
+      });
+    }
+  }
 
   function init(options) {
     wx.getSetting({
       success: (res2) => {
-        if (res2.authSetting["scope.record"] === false && !runtime.hasShowAccessHint){
+        if (res2.authSetting["scope.record"] === false){
           runtime.noRecordPermission = true;
-          wx.showModal({
-            title: '提示',
-            content: '请授权录音后才能正常使用',
-            showCancel: false,
-            confirmText: "知道了",
-            success: function (res3) {
-              runtime.hasShowAccessHint = true;
-              wx.openSetting();
-            }
-          });
+          showNotAccessHint();
         }
+      },
+      fail: (err) =>{
+        runtime.noRecordPermission = true;
+        showNotAccessHint();
       }
     });
 
@@ -282,6 +291,7 @@
         doCheck();
       },
       fail: function (res) {
+        showNotAccessHint();
         runtime.noRecordPermission = true;
         resetRuntime();
         safe_call(fail, err.NO_RECORD_PERMISSION);
