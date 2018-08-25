@@ -19,11 +19,6 @@ Page({
     });
   },
 
-  onHide: function (){
-    detector.destory();
-    this.isDetecting = false;
-  },
-
   onclick: function () {
     if (this.isDetecting){
       return;
