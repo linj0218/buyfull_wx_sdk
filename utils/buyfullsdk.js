@@ -494,6 +494,7 @@
           config[index].power = 0;
           config[index].success = 0;
           config[index].startTime = 0;
+          config[index].recordPeriod = 0;
         }
         return true;
       }
@@ -1124,12 +1125,13 @@
         if (runtime.isRecording){
           runtime.isRecording = false;
           if (runtime.mp3FilePath == '') {
-            if (res.duration < (runtime.record_options.duration - 200) || res.fileSize <= 0) {
+            if ((res.duration < 1100) || (res.fileSize <= 0)) {
               debugLog("Record on stop error:" + JSON.stringify(res));
               runtime.mp3FilePath = "ERROR_RECORD";
             } else {
               debugLog("Record on stop success:" + JSON.stringify(res));
               runtime.mp3FilePath = res.tempFilePath;
+              runtime.checkFormatData[0].recordPeriod = res.duration;
             }
           }
         }
@@ -1222,7 +1224,7 @@
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
     var onlyFileName = fileName.split(".",1)[0]
-    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].duration + ".mp3"
+    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + ".mp3"
 
     var formData = {
       'token': runtime.qiniuToken,
