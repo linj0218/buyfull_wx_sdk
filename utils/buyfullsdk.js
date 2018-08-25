@@ -1131,7 +1131,7 @@
             } else {
               debugLog("Record on stop success:" + JSON.stringify(res));
               runtime.mp3FilePath = res.tempFilePath;
-              runtime.checkFormatData[0].recordPeriod = res.duration;
+              runtime.checkFormatData[0].recordPeriod = parseInt(res.duration);
             }
           }
         }
