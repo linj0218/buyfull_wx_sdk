@@ -11,11 +11,13 @@ Page({
   onLoad: function () {
     detector.init({
       //这只是个demo,请联系百蝠获取appkey,同时布署自己的buyfull token service
-      appKey:"121e87d73077403eadd9ab4fec2d9973",
-      buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken",
-      abortTimeout: 3000,//单次网络请求超时
-      detectTimeout: 5000,//总超时
-      debugLog: false,//true可以打开debugLog
+      // appKey:"121e87d73077403eadd9ab4fec2d9973",
+      // buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken",
+      appKey: "75ba120532f44aa7a8cd431a2c2a50ef",
+      buyfullTokenUrl: "https://sandbox.buyfull.cc/testycq2/buyfulltoken",
+      // abortTimeout: 3000,//单次网络请求超时
+      // detectTimeout: 6000,//总超时
+      // debugLog: true,//true可以打开debugLog
     });
   },
 
@@ -69,12 +71,22 @@ Page({
       this.isDetecting = true;
       this.retryCount = 3;
     }
-    detector.detect(null, function (resultUrl) {
-      console.log("检测成功,url是:" + resultUrl);
-      //url中的mediaInfo信息可以在营销渠道中的 "其它信息" 内自定义
-      wx.showToast({
-        title: 'result is: ' + resultUrl,
-      })
+    detector.detect({
+      version: "v2" //针对qieshu.net上的帐号请使用v2
+    }, function (result) {
+      console.log("检测结束,结果是:" + JSON.stringify(result));
+      if (result.count > 0){
+        wx.showModal({
+          title: 'result is:',
+          content: JSON.stringify(result.result[0]),
+        })
+      }else{
+        wx.showModal({
+          title: 'result is null, power is:',
+          content: result.sortByPowerResult[0].power + "|" + result.sortByPowerResult[1].power,
+        })
+      }
+      
       thiz.isDetecting = false;
     }, function (errorCode) {
       //检测无结果或有错误都会回调
