@@ -1,8 +1,5 @@
 // created by ycq
 (function () {
-  // var ar = require("./aurora.js");
-  // var mp3 = require("./mp3.js");
-
   var err = {
     HAS_NO_RESULT: 0,//检测无结果
     INVALID_APPKEY: 1,//APPKEY不正确
@@ -25,6 +22,7 @@
     INVALID_REGION: 18,//非法的服务器地域
     NO_RECORD_PERMISSION: 19,//没有录音权限
     WX_VERSION_TOO_LOW: 20,//微信版本太低
+    SDK_VERSION_NOT_MATCH: 21,//在qieshu.net上注册的帐号请在detect的option中加入{version:"v2"}
   }
 
   var config = {
@@ -37,6 +35,7 @@
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     region: "ECN",
     detectSuffix: '?soundtag-decode/decodev3/place/MP3',
+    detectV2Suffix: '?soundtag-decode/decodev4/place/MP3',
   }
 
   module.exports = {
@@ -90,6 +89,8 @@
     checkFormatData: null,
     hasSaveRecordConfig: false,
     userID: null,
+    detectVersion: "",
+    results: null,
   }
 
   function resetRuntime() {
@@ -118,6 +119,8 @@
     runtime.qiniuUrl = '';
     runtime.resultUrl = '';
     runtime.mp3FilePath = '';
+    runtime.userID = null;
+    runtime.results = null;
   }
 
   function showNotAccessHint() {
@@ -214,6 +217,7 @@
       }
       if (options.detectSuffix){
         config.detectSuffix = options.detectSuffix;
+        config.detectV2Suffix = options.detectSuffix;
       }
     }
   }
@@ -246,7 +250,6 @@
       }
     }
   }
-
 
   function detect(options, success, fail) {
 
@@ -317,6 +320,14 @@
     runtime.region = config.region;
     runtime.detectSuffix = config.detectSuffix;
     if (options){
+      if (options.version == "v2") {
+        runtime.detectVersion = options.version
+        runtime.detectSuffix = config.detectV2Suffix;
+      }else{
+        runtime.detectVersion = ""
+        runtime.detectSuffix = config.detectSuffix;        
+      }
+
       if (options.detectSuffix){
         runtime.detectSuffix = options.detectSuffix;
       }
@@ -572,6 +583,48 @@
     }
   }
 
+  function compareChannelPower(a, b) {
+    if (a.power < b.power) return 1;
+    if (a.power > b.power) return -1;
+    return 0;
+  }
+
+  function handleRecordResult(retCode, retData) {
+    //go though return data
+    if (retData.result && retData.result.length > 0){
+      for (var index = 0; index < retData.result.length; ++index) {
+        retData.result[index].channel = index;
+      }
+      retData.rawResult = retData.result;
+      var sortedArray = retData.result.slice();
+      sortedArray.sort(compareChannelPower);
+      retData.sortByPowerResult = sortedArray;
+      var validResult = [];
+      for (var index = 0; index < sortedArray.length; ++index) {
+        if (sortedArray[index].tags.length > 0){
+          validResult.push(sortedArray[index]);
+        }
+      }
+      retData.result = validResult;
+      retData.count = validResult.length;
+    }else{
+      retData.count = 0;
+      retData.result = [];
+      retData.sortByPowerResult = [];
+      retData.rawResult = [];
+    }
+    
+    if (retData.validResultCount > 0){
+      handleSuccessRecord(0, retData.start + "|" + retData.power);
+    }else if (retCode == 0){
+      handleFailRecord(retCode, retData.start + "|" + retData.power);
+    } else if (retCode >= 9 && retCode <= 20) {
+      handleFailRecord(retCode, retData.start + "|" + retData.period);
+    }
+    runtime.results = retData;
+  }
+
+  
   function handleSuccessRecord(retCode, retInfo){
     //if succeed , improve priority
     var info = retInfo.split("|")
@@ -827,6 +880,8 @@
         safe_call(fail_cb, err.HAS_NO_RESULT);
       } else if (runtime.resultUrl == 'ERROR_REGION') {
         safe_call(fail_cb, err.INVALID_REGION);
+      } else if (runtime.resultUrl == "ERROR_SDK_VERSION"){
+        safe_call(fail_cb, err.SDK_VERSION_NOT_MATCH);
       }
       return;
     } else {
@@ -835,7 +890,11 @@
       runtime.fail_cb = null;
       var success_cb = runtime.success_cb;
       runtime.success_cb = null;
-      safe_call(success_cb, runtime.resultUrl);
+      if (runtime.detectVersion == "v2"){
+        safe_call(success_cb, runtime.results);
+      }else{
+        safe_call(success_cb, runtime.resultUrl);
+      }
     }
   }
 
@@ -1411,23 +1470,51 @@
         var result = res.data.result;
         if (runtime.resultUrl == '') {
           debugLog("data is:" + JSON.stringify(res.data));
-          if (code == 0 && result && result.length > 0) {
-            runtime.resultUrl = result;
-            handleSuccessRecord(code, res.data.info)
-          } else {
-            if (code == 100) {
-              //wrong buyfull token
-              runtime.buyfullToken = "REFRESH";
-            } else if (code == 0) {
-              handleFailRecord(code, res.data.info);
-              runtime.resultUrl = "ERROR_NO_RESULT";
-            } else if (code >= 9 && code <= 20) {
-              handleFailRecord(code, res.data.info);
-              runtime.resultUrl = "ERROR_NO_RESULT";
+          if (runtime.detectVersion == "v2"){
+            if (code == 0) {
+              if (result){
+                runtime.resultUrl = "OK";
+              }else{
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              }
+              handleRecordResult(code, res.data);
             } else {
-              runtime.resultUrl = "ERROR_SERVER";
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code >= 9 && code <= 20) {
+                handleRecordResult(code, res.data);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
+            }
+          }else{
+            if (code == 0 && result && result.length > 0) {
+              runtime.resultUrl = result;
+              handleSuccessRecord(code, res.data.info)
+            } else {
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code == 0) {
+                handleFailRecord(code, res.data.info);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else if (code >= 9 && code <= 20) {
+                handleFailRecord(code, res.data.info);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
             }
           }
+
           reDoCheck();
         }
 
