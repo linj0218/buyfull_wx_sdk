@@ -29,7 +29,7 @@
     appKey: '',
     buyfullTokenUrl: '',
     detectTimeout: 6000,//总的超时
-    abortTimeout: 3000,//单个API请求的超时
+    abortTimeout: 2000,//单个API请求的超时
     debugLog: false,//是否打印debuglog
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
@@ -140,40 +140,9 @@
   }
 
   function init(options) {
-    wx.getSetting({
-      success: (res2) => {
-        if (res2.authSetting["scope.record"] === false){
-          runtime.noRecordPermission = true;
-          showNotAccessHint();
-        }
-        if (res2.authSetting["scope.userInfo"] === true){
-          runtime.hasUserPermission = true;
-          wx.login({
-            success: function (res1) {
-              wx.getUserInfo({
-                success: function (res) {
-                  try {
-                    delete res.rawData;
-                    delete res.encryptedData;
-                    delete res.iv;
-                    delete res.signature;
-                    res.loginCode = res1.code;
-                    runtime.userInfo = JSON.stringify(res);
-                    debugLog(runtime.userInfo);
-                  } catch (e) {
-                    debugLog(e);
-                  }
-                }
-              })
-            }
-          });
-        }
-      },
-      fail: (err) =>{
-        runtime.noRecordPermission = true;
-        showNotAccessHint();
-      }
-    });
+    try{
+      checkPermission();
+    } catch (e) {}
 
     try {
       updateConfigWithOptions(options);
@@ -200,6 +169,45 @@
   String.prototype.replaceAll = function (FindText, RepText) {
     var regExp = new RegExp(FindText, "g");
     return this.replace(regExp, RepText);
+  }
+
+  function checkPermission(){
+    wx.getSetting({
+      success: (res2) => {
+        if (res2.authSetting["scope.record"] === false) {
+          runtime.noRecordPermission = true;
+          showNotAccessHint();
+        }
+        if (res2.authSetting["scope.userInfo"] === true) {
+          runtime.hasUserPermission = true;
+          if (runtime.userInfo == "") {
+            wx.login({
+              success: function (res1) {
+                wx.getUserInfo({
+                  success: function (res) {
+                    try {
+                      delete res.rawData;
+                      delete res.encryptedData;
+                      delete res.iv;
+                      delete res.signature;
+                      res.loginCode = res1.code;
+                      runtime.userInfo = JSON.stringify(res);
+                      debugLog(runtime.userInfo);
+                    } catch (e) {
+                      debugLog(e);
+                    }
+                  }
+                })
+              }
+            });
+          }
+        }
+      },
+      fail: (err) => {
+        runtime.noRecordPermission = true;
+        showNotAccessHint();
+      }
+    });
   }
 
   function updateConfigWithOptions(options) {
@@ -278,6 +286,10 @@
       return;
     }
 
+    try {
+      checkPermission();
+    } catch (e) { }
+    
     wx.authorize({
       scope: 'scope.record',
       success: function () {
@@ -793,7 +805,11 @@
       var fail_cb = runtime.fail_cb;
       runtime.fail_cb = null;
       if (runtime.buyfullToken == 'ERROR_ABORT') {
-        safe_call(fail_cb, err.GET_BUYFULL_TOKEN_TIMEOUT);
+        //auto retry
+        debugLog("GET_BUYFULL_TOKEN_TIMEOUT");
+        runtime.buyfullToken = "";
+        reDoCheck();
+        // safe_call(fail_cb, err.GET_BUYFULL_TOKEN_TIMEOUT);
       } else if (runtime.buyfullToken == 'ERROR_SERVER') {
         safe_call(fail_cb, err.GET_BUYFULL_TOKEN_ERROR);
       } else if (runtime.buyfullToken == 'ERROR_HTTP') {
@@ -828,7 +844,10 @@
       var fail_cb = runtime.fail_cb;
       runtime.fail_cb = null;
       if (runtime.qiniuToken == 'ERROR_ABORT') {
-        safe_call(fail_cb, err.GET_QINIU_TOKEN_TIMEOUT);
+        debugLog("GET_QINIU_TOKEN_TIMEOUT");
+        runtime.qiniuToken = "";
+        reDoCheck();
+        // safe_call(fail_cb, err.GET_QINIU_TOKEN_TIMEOUT);
       } else if (runtime.qiniuToken == 'ERROR_SERVER') {
         safe_call(fail_cb, err.GET_QINIU_TOKEN_ERROR);
       } else if (runtime.qiniuToken == 'ERROR_HTTP') {
@@ -850,7 +869,11 @@
       var fail_cb = runtime.fail_cb;
       runtime.fail_cb = null;
       if (runtime.qiniuUrl == 'ERROR_ABORT') {
-        safe_call(fail_cb, err.UPLOAD_TIMEOUT);
+        // safe_call(fail_cb, err.UPLOAD_TIMEOUT);
+        debugLog("UPLOAD_TIMEOUT");
+        runtime.qiniuToken = "";
+        runtime.qiniuUrl == "";
+        reDoCheck();
       } else if (runtime.qiniuUrl == 'ERROR_UPLOAD_FAIL') {
         safe_call(fail_cb, err.UPLOAD_FAIL);
       } else if (runtime.qiniuUrl == 'ERROR_JSON') {
@@ -874,7 +897,10 @@
       var fail_cb = runtime.fail_cb;
       runtime.fail_cb = null;
       if (runtime.resultUrl == 'ERROR_ABORT') {
-        safe_call(fail_cb, err.DETECT_TIMEOUT);
+        // safe_call(fail_cb, err.DETECT_TIMEOUT);
+        debugLog("DETECT_TIMEOUT");
+        runtime.resultUrl = "";
+        reDoCheck();
       } else if (runtime.resultUrl == 'ERROR_SERVER') {
         safe_call(fail_cb, err.DETECT_ERROR);
       } else if (runtime.resultUrl == 'ERROR_HTTP') {
@@ -1005,7 +1031,7 @@
       data.hash = runtime.hash;
 
     var fileName = runtime.mp3FilePath.split('//')[1];
-    data.urlkey = fileName;
+    data.urlkey = Date.now() + "_" + fileName ;
 
     runtime.requestTask = wx.request({
       url: config.qiniuTokenUrl,
@@ -1296,7 +1322,7 @@
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
     var onlyFileName = fileName.split(".",1)[0]
-    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + ".mp3"
+    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + "_" + Date.now() + ".mp3"
 
     var formData = {
       'token': runtime.qiniuToken,
@@ -1362,7 +1388,12 @@
           reDoCheck();
         }
       }
-    })
+    });
+
+    runtime.requestTask.onProgressUpdate((res) => {
+      setAbortTimer();
+      debugLog('uploading: ' + res.progress)
+    });
 
     setAbortTimer();
   }
