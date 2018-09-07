@@ -91,6 +91,7 @@
     userID: null,
     detectVersion: "",
     results: null,
+    hasUserPermission: false,
   }
 
   function resetRuntime() {
@@ -145,30 +146,32 @@
           runtime.noRecordPermission = true;
           showNotAccessHint();
         }
+        if (res2.authSetting["scope.userInfo"] === true){
+          runtime.hasUserPermission = true;
+          wx.login({
+            success: function (res1) {
+              wx.getUserInfo({
+                success: function (res) {
+                  try {
+                    delete res.rawData;
+                    delete res.encryptedData;
+                    delete res.iv;
+                    delete res.signature;
+                    res.loginCode = res1.code;
+                    runtime.userInfo = JSON.stringify(res);
+                    debugLog(runtime.userInfo);
+                  } catch (e) {
+                    debugLog(e);
+                  }
+                }
+              })
+            }
+          });
+        }
       },
       fail: (err) =>{
         runtime.noRecordPermission = true;
         showNotAccessHint();
-      }
-    });
-
-    wx.login({
-      success: function (res1) {
-        wx.getUserInfo({
-          success: function (res) {
-            try{
-              delete res.rawData;
-              delete res.encryptedData;
-              delete res.iv;
-              delete res.signature;
-              res.loginCode = res1.code;
-              runtime.userInfo = JSON.stringify(res);
-              debugLog(runtime.userInfo);
-            }catch(e){
-              debugLog(e);
-            }
-          }
-        })
       }
     });
 
