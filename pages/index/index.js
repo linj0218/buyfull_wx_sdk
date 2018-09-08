@@ -72,7 +72,8 @@ Page({
       this.retryCount = 3;
     }
     detector.detect({
-      version: "v2" //针对qieshu.net上的帐号请使用v2
+      version: "v2", //针对qieshu.net上的帐号请使用v2
+      //userID: "xxxxxxx" //可选，可以以后台报表数据中作为统计数据的一个参数
     }, function (result) {
       console.log("检测结束,结果是:" + JSON.stringify(result));
       if (result.count > 0){

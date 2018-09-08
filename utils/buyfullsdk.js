@@ -637,7 +637,7 @@
       retData.result = [];
       retData.sortByPowerResult = [];
       retData.rawResult = [];
-      retData.tags = [];
+      retData.allTags = [];
     }
     
     if (retData.validResultCount > 0){

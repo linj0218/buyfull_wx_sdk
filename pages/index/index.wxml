@@ -2,6 +2,7 @@
 
 <scroll-view>
 <button class="btn-style" open-type="openSetting">打开录音设置</button>
+<button class="btn-style" open-type="getUserInfo">打开用户权限</button>
  </scroll-view>
  
 
