@@ -78,11 +78,11 @@ Page({
       if (result.count > 0){
         wx.showModal({
           title: 'result is:',
-          content: JSON.stringify(result.result[0]),
+          content: JSON.stringify(result.allTags),
         })
       }else{
         wx.showModal({
-          title: 'result is null, power is:',
+          title: 'result is null, power is (dB):',
           content: result.sortByPowerResult[0].power + "|" + result.sortByPowerResult[1].power,
         })
       }

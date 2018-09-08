@@ -289,7 +289,7 @@
     try {
       checkPermission();
     } catch (e) { }
-    
+
     wx.authorize({
       scope: 'scope.record',
       success: function () {
@@ -419,6 +419,11 @@
           } catch (e) {
 
           }
+        }else{
+          runtime.checkFormatData = [
+            { priority: 1, src: "auto", duration: 1200 },
+          ];
+          checkRecordConfig(runtime.checkFormatData);
         }
         debugLog(runtime.deviceInfo.str);
       } catch (e) {
@@ -615,18 +620,24 @@
       sortedArray.sort(compareChannelPower);
       retData.sortByPowerResult = sortedArray;
       var validResult = [];
+      var tags = [];
       for (var index = 0; index < sortedArray.length; ++index) {
         if (sortedArray[index].tags.length > 0){
           validResult.push(sortedArray[index]);
+          for (var i = 0; i < sortedArray[index].tags.length; ++i){
+            tags.push(sortedArray[index].tags[i]);
+          }
         }
       }
       retData.result = validResult;
       retData.count = validResult.length;
+      retData.allTags = tags;
     }else{
       retData.count = 0;
       retData.result = [];
       retData.sortByPowerResult = [];
       retData.rawResult = [];
+      retData.tags = [];
     }
     
     if (retData.validResultCount > 0){
@@ -782,11 +793,17 @@
 
     if ((Date.now() - runtime.lastDetectTime) > config.detectTimeout) {
       //incase deadloop
-      runtime.success_cb = null;
-      var fail_cb = runtime.fail_cb;
-      runtime.fail_cb = null;
-      safe_call(fail_cb, err.DETECT_TIMEOUT);
-      return
+      if (runtime.resultUrl != ""){
+        //if it has final result, let's return it
+        if (!runtime.resultUrl.startsWith("ERROR_")){
+          callSuccess();
+        } else{
+          callFail(err.DETECT_TIMEOUT);
+        }
+      }else{
+        callFail(err.DETECT_TIMEOUT);
+      }
+      return;
     }
 
     var hasBuyfullToken = false;
@@ -801,20 +818,18 @@
       runtime.buyfullToken = "";
       doGetBuyfullToken(true);
     } else if (runtime.buyfullToken.startsWith("ERROR_")) {
-      runtime.success_cb = null;
-      var fail_cb = runtime.fail_cb;
-      runtime.fail_cb = null;
       if (runtime.buyfullToken == 'ERROR_ABORT') {
-        //auto retry
         debugLog("GET_BUYFULL_TOKEN_TIMEOUT");
         runtime.buyfullToken = "";
         reDoCheck();
         // safe_call(fail_cb, err.GET_BUYFULL_TOKEN_TIMEOUT);
-      } else if (runtime.buyfullToken == 'ERROR_SERVER') {
-        safe_call(fail_cb, err.GET_BUYFULL_TOKEN_ERROR);
-      } else if (runtime.buyfullToken == 'ERROR_HTTP') {
-        safe_call(fail_cb, err.NETWORK_ERROR);
-      }
+      }else{
+        if (runtime.buyfullToken == 'ERROR_SERVER') {
+          callFail(err.GET_BUYFULL_TOKEN_ERROR);
+        } else if (runtime.buyfullToken == 'ERROR_HTTP') {
+          callFail(err.NETWORK_ERROR);
+        }
+      } 
       return;
     } else {
       hasBuyfullToken = true;
@@ -825,10 +840,7 @@
       if (runtime.mp3FilePath == '') {
         doRecord();
       } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
-        runtime.success_cb = null;
-        var fail_cb = runtime.fail_cb;
-        runtime.fail_cb = null;
-        safe_call(fail_cb, err.RECORD_FAIL);
+        callFail(err.RECORD_FAIL);
         return;
       } else {
         hasMP3 = true;
@@ -837,23 +849,22 @@
 
     //check qiniu token
     if (runtime.qiniuToken == '') {
-      if (hasBuyfullToken && hasMP3)
+      if (hasBuyfullToken)
         doGetQiniuToken();
     } else if (runtime.qiniuToken.startsWith("ERROR_")) {
-      runtime.success_cb = null;
-      var fail_cb = runtime.fail_cb;
-      runtime.fail_cb = null;
       if (runtime.qiniuToken == 'ERROR_ABORT') {
         debugLog("GET_QINIU_TOKEN_TIMEOUT");
         runtime.qiniuToken = "";
         reDoCheck();
         // safe_call(fail_cb, err.GET_QINIU_TOKEN_TIMEOUT);
-      } else if (runtime.qiniuToken == 'ERROR_SERVER') {
-        safe_call(fail_cb, err.GET_QINIU_TOKEN_ERROR);
-      } else if (runtime.qiniuToken == 'ERROR_HTTP') {
-        safe_call(fail_cb, err.NETWORK_ERROR);
-      } else if (runtime.qiniuToken == 'ERROR_INVALID_TOKENURL') {
-        safe_call(fail_cb, err.INVALID_QINIU_TOKENURL);
+      }else{
+        if (runtime.qiniuToken == 'ERROR_SERVER') {
+          callFail(err.GET_QINIU_TOKEN_ERROR);
+        } else if (runtime.qiniuToken == 'ERROR_HTTP') {
+          callFail(err.NETWORK_ERROR);
+        } else if (runtime.qiniuToken == 'ERROR_INVALID_TOKENURL') {
+          callFail(err.INVALID_QINIU_TOKENURL);
+        }
       }
       return;
     } else {
@@ -865,24 +876,23 @@
       if (hasQiniuToken && hasMP3)
         doUpload();
     } else if (runtime.qiniuUrl.startsWith("ERROR_")) {
-      runtime.success_cb = null;
-      var fail_cb = runtime.fail_cb;
-      runtime.fail_cb = null;
       if (runtime.qiniuUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.UPLOAD_TIMEOUT);
         debugLog("UPLOAD_TIMEOUT");
         runtime.qiniuToken = "";
         runtime.qiniuUrl == "";
         reDoCheck();
-      } else if (runtime.qiniuUrl == 'ERROR_UPLOAD_FAIL') {
-        safe_call(fail_cb, err.UPLOAD_FAIL);
-      } else if (runtime.qiniuUrl == 'ERROR_JSON') {
-        safe_call(fail_cb, err.JSON_PARSE_ERROR);
-      } else if (runtime.qiniuUrl == 'ERROR_HTTP') {
-        safe_call(fail_cb, err.NETWORK_ERROR);
-      } else if (runtime.qiniuUrl == 'ERROR_REGION') {
-        safe_call(fail_cb, err.INVALID_REGION);
-      }
+      }else{
+        if (runtime.qiniuUrl == 'ERROR_UPLOAD_FAIL') {
+          callFail(err.UPLOAD_FAIL);
+        } else if (runtime.qiniuUrl == 'ERROR_JSON') {
+          callFail(err.JSON_PARSE_ERROR);
+        } else if (runtime.qiniuUrl == 'ERROR_HTTP') {
+          callFail(err.NETWORK_ERROR);
+        } else if (runtime.qiniuUrl == 'ERROR_REGION') {
+          callFail(err.INVALID_REGION);
+        }
+      } 
       return;
     } else {
       hasUploaded = true;
@@ -893,38 +903,49 @@
       if (hasUploaded && hasBuyfullToken)
         doDetect();
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
-      runtime.success_cb = null;
-      var fail_cb = runtime.fail_cb;
-      runtime.fail_cb = null;
       if (runtime.resultUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.DETECT_TIMEOUT);
         debugLog("DETECT_TIMEOUT");
         runtime.resultUrl = "";
         reDoCheck();
-      } else if (runtime.resultUrl == 'ERROR_SERVER') {
-        safe_call(fail_cb, err.DETECT_ERROR);
-      } else if (runtime.resultUrl == 'ERROR_HTTP') {
-        safe_call(fail_cb, err.NETWORK_ERROR);
-      } else if (runtime.resultUrl == 'ERROR_NO_RESULT') {
-        safe_call(fail_cb, err.HAS_NO_RESULT);
-      } else if (runtime.resultUrl == 'ERROR_REGION') {
-        safe_call(fail_cb, err.INVALID_REGION);
-      } else if (runtime.resultUrl == "ERROR_SDK_VERSION"){
-        safe_call(fail_cb, err.SDK_VERSION_NOT_MATCH);
-      }
+      }else{
+        if (runtime.resultUrl == 'ERROR_SERVER') {
+          callFail(err.DETECT_ERROR);
+        } else if (runtime.resultUrl == 'ERROR_HTTP') {
+          callFail(err.NETWORK_ERROR);
+        } else if (runtime.resultUrl == 'ERROR_NO_RESULT') {
+          callFail(err.HAS_NO_RESULT);
+        } else if (runtime.resultUrl == 'ERROR_REGION') {
+          callFail(err.INVALID_REGION);
+        } else if (runtime.resultUrl == "ERROR_SDK_VERSION") {
+          callFail(err.SDK_VERSION_NOT_MATCH);
+        }
+      }  
       return;
     } else {
-      //success callback
-      debugLog("detect use time: " + (Date.now() - runtime.lastDetectTime));
-      runtime.fail_cb = null;
-      var success_cb = runtime.success_cb;
-      runtime.success_cb = null;
-      if (runtime.detectVersion == "v2"){
-        safe_call(success_cb, runtime.results);
-      }else{
-        safe_call(success_cb, runtime.resultUrl);
-      }
+      callSuccess();
     }
+  }
+
+  function callSuccess(){
+    //success callback
+    debugLog("detect use time: " + (Date.now() - runtime.lastDetectTime));
+    runtime.fail_cb = null;
+    var success_cb = runtime.success_cb;
+    runtime.success_cb = null;
+    if (runtime.detectVersion == "v2") {
+      safe_call(success_cb, runtime.results);
+    } else {
+      safe_call(success_cb, runtime.resultUrl);
+    }
+  }
+
+  function callFail(errcode){
+    debugLog("detect fail with time: " + (Date.now() - runtime.lastDetectTime));
+    runtime.success_cb = null;
+    var fail_cb = runtime.fail_cb;
+    runtime.fail_cb = null;
+    safe_call(fail_cb, errcode);
   }
 
   function reDoCheck(){
@@ -1030,8 +1051,11 @@
     if (runtime.hash && runtime.hash != "")
       data.hash = runtime.hash;
 
-    var fileName = runtime.mp3FilePath.split('//')[1];
-    data.urlkey = Date.now() + "_" + fileName ;
+    // var fileName = runtime.mp3FilePath.split('//')[1];
+    // data.urlkey = Date.now() + "_" + fileName ;
+    data.urlkey = Date.now() + "_" + Math.random();
+    if (runtime.hash && runtime.hash != "")
+      data.urlkey += "_" + runtime.hash;
 
     runtime.requestTask = wx.request({
       url: config.qiniuTokenUrl,
