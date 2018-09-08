@@ -1,4 +1,30 @@
 # buyfull_wx_sdk
+
+2018.9.8 V2版本
+正式服 http://www.qieshu.net</br>
+测试服 http://sandbox.qieshu.net</br>
+测试请联系百蝠工作人员提供测试音频和设备</br>
+此版本可以同时返回两个声波信道的检测结果以及每个声道的分贝数和总的分贝数（18-20Khz)</br></br>
+detector.detect({</br>
+      version: "v2", //针对qieshu.net上的帐号请使用v2</br>
+      userID: "xxxxxxx" //可选，在后台报表数据中作为统计数据的一个参数</br>
+    }, function (result) {</br>
+      //result为对象，包括以下属性：</br></br>
+       power 总的分贝数</br>
+       allTags 所有信道的检测成功结果中的标签的集合</br>
+       count 检测成功结果的数量</br>
+       result  检测成功结果的集合</br>
+       sortByPowerResult 按分贝数大小排序的信道信息，包含无效检测结果;</br>
+       rawResult 原始信息信息，包含无效检测结果，从信道号0开始;</br></br>
+       每个信道信息中包括</br>
+        channel 信道编号</br>
+        power 分贝数</br>
+        tags 检测成功包含后台中设定的标签信息</br>
+    }</br>
+
+
+
+V1</br>
 百蝠官网 http://www.buyfull.cc</br>
 开发测试服 http://sandbox.buyfull.cc</br>
 
@@ -30,8 +56,8 @@
       //这只是个demo,请联系百蝠获取appkey,同时布署自己的buyfull token service</br>
       appKey:"121e87d73077403eadd9ab4fec2d9973",//请替换成自己的APPKEY</br>
       buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken", //重要！！！此URL请替换成自已的服务器地址，这个地址上需要布署一个后台服务，用来返回buyfull token,参考https://github.com/yecq/buyfull_wx_backend</br>
-      abortTimeout: 3000,//单次网络请求超时</br>
-      detectTimeout: 5000,//单次检测的总超时</br>
+      abortTimeout: 2000,//单次网络请求超时</br>
+      detectTimeout: 6000,//单次检测的总超时</br>
       debugLog: true,//true可以打开debugLog</br>
       region: "ECN", //可选 ECN华东 NCN华北 SCN华南
     });</br></br>
