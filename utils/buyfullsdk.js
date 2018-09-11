@@ -625,7 +625,9 @@
         if (sortedArray[index].tags.length > 0){
           validResult.push(sortedArray[index]);
           for (var i = 0; i < sortedArray[index].tags.length; ++i){
-            tags.push(sortedArray[index].tags[i]);
+            if (tags.indexOf(sortedArray[index].tags[i]) == -1){
+              tags.push(sortedArray[index].tags[i]);
+            }
           }
         }
       }
