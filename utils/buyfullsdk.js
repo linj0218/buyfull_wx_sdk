@@ -649,6 +649,10 @@
     } else if (retCode >= 9 && retCode <= 20) {
       handleFailRecord(retCode, retData.start + "|" + retData.period);
     }
+
+    delete retData.code;
+    delete retData.start;
+    delete retData.period;
     runtime.results = retData;
   }
 
