@@ -115,7 +115,7 @@
     if (runtime.buyfullToken.startsWith("ERROR_")) {
       runtime.buyfullToken = '';
     }
-    runtime.qiniuToken = '';
+    // runtime.qiniuToken = '';
     runtime.uploadServer = '';
     runtime.qiniuUrl = '';
     runtime.resultUrl = '';
@@ -133,7 +133,8 @@
         showCancel: false,
         confirmText: "知道了",
         success: function (res3) {
-          wx.openSetting();
+          //TODO: to open setting page
+          // wx.openSetting();
         }
       });
     }
@@ -885,7 +886,7 @@
       if (runtime.qiniuUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.UPLOAD_TIMEOUT);
         debugLog("UPLOAD_TIMEOUT");
-        runtime.qiniuToken = "";
+        // runtime.qiniuToken = "";
         runtime.qiniuUrl == "";
         reDoCheck();
       }else{
@@ -1385,7 +1386,7 @@
           } else if (dataObject.error && dataObject.error == "expired token") {
             if (runtime.qiniuUrl == '') {
               //request new upload token
-              runtime.qiniuToken = '';
+              runtime.qiniuToken = "";
               reDoCheck();
             }
           } else {
