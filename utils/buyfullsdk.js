@@ -333,7 +333,9 @@
   }
 
   function checkOptions(options){
-    runtime.region = config.region;
+    if (runtime.region == ""){
+      runtime.region = config.region;
+    }
     runtime.detectSuffix = config.detectSuffix;
     if (options){
       if (options.version == "v2") {
