@@ -92,6 +92,7 @@
     detectVersion: "",
     results: null,
     hasUserPermission: false,
+    customData: null,
   }
 
   function resetRuntime() {
@@ -122,6 +123,7 @@
     runtime.mp3FilePath = '';
     runtime.userID = null;
     runtime.results = null;
+    runtime.customData = null;
   }
 
   function showNotAccessHint() {
@@ -305,6 +307,7 @@
           return;
         }
         resetRuntime();
+        checkOptions(options);//for set param;
         runtime.success_cb = success;
         runtime.fail_cb = fail;
         doCheck();
@@ -358,6 +361,10 @@
 
       if (options.userID) {
         runtime.userID = options.userID;
+      }
+
+      if (options.customData) {
+        runtime.customData = options.customData;
       }
     }
     return true;
@@ -1483,11 +1490,19 @@
       return null;
     }
 
-    var userID = runtime.hash;
+    var userID = [runtime.hash];
     if (runtime.userID){
-      userID += ":" + runtime.userID;
+      userID.push(runtime.userID)
     }
     
+    if (runtime.customData){
+      if (userID.length == 1){
+        userID.push("")
+      }
+      userID.push(JSON.stringify(runtime.customData));
+    }
+    userID = userID.join(":")
+
     var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(userID) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
     if (runtime.userInfo != ""){
       url += "/" + encodeURIComponent(runtime.userInfo);

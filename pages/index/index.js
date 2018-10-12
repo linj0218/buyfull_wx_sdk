@@ -73,7 +73,8 @@ Page({
     }
     detector.detect({
       version: "v2", //针对qieshu.net上的帐号请使用v2
-      //userID: "xxxxxxx" //可选，可以以后台报表数据中作为统计数据的一个参数
+      // userID: "customerID", //可选，可以给后台报表数据中作为统计数据的一个参数
+      //customData: {"name":"martin"},//可选，可以给后台报表数据中作为统计数据
     }, function (result) {
       console.log("检测结束,结果是:" + JSON.stringify(result));
       if (result.count > 0){
