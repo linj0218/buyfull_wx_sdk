@@ -1,7 +1,7 @@
 //index.js
 //获取应用实例
 const detector = require("../../utils/buyfullsdk");
-
+const openRecordSetting = require("../openSettingTemp/openSettingTemp.js");
 
 var app = getApp()
 Page({
@@ -19,50 +19,16 @@ Page({
       // detectTimeout: 6000,//总超时
       // debugLog: true,//true可以打开debugLog
     });
+    //用户拒绝录音授权后会弹出提示框，每次运行只会打开一次
+    //请把openSettingTemp中的模板import进来，具体请查看index.wxml和index.wxss
+    openRecordSetting.bindRecordSettingForPage(this,detector); 
   },
 
   onclick: function () {
     if (this.isDetecting){
       return;
     }
-    var thiz = this;
-    wx.getSetting({
-      success:(res) =>{
-        console.log(JSON.stringify(res));
-        if (res.authSetting["scope.record"] === false){
-          wx.showModal({
-            title: '提示',
-            content: '检测信标只需要录音"1"秒钟。\n您可以在微信右上角查看录音状态。\n我们保证不会收集您的任何个人隐私',
-            showCancel: true,
-            cancelText: "不打开",
-            confirmText: "打开权限",
-            success: function (res) {
-              if (res.confirm) {
-                wx.openSetting({
-                  success:(res) =>{
-                    if (res.authSetting["scope.record"] === true) {
-                      thiz.doDetect();
-                    }
-                  },
-                  fail:(err) =>{
-                    thiz.doDetect();
-                  }
-                })
-              }
-            }, 
-            fail: function(err){
-              thiz.doDetect();
-            }
-          });
-        }else{
-          thiz.doDetect();
-        }
-      },
-      fail:(err) =>{
-        thiz.doDetect();
-      }
-    });
-    
+    this.doDetect();
   },
 
   doDetect: function () {

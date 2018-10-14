@@ -1,4 +1,6 @@
 /**index.wxss**/
+@import "../openSettingTemp/openSettingTemp.wxss";
+
 .speak-style{
     position: relative;
     height: 240rpx;

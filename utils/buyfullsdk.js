@@ -43,7 +43,8 @@
     destory: destory,
     detect: detect,
     errcode: err,
-    debug : printDebugLog,
+    debug: printDebugLog,
+    setRecordPermissionCallback: setRecordPermissionCallback
   }
 
   var runtime = {
@@ -81,7 +82,7 @@
     debugLog: '',
     hasShowAccessHint: false,
     hasShowVersionHint: false,
-    noRecordPermission: true,
+    noRecordPermission: false,
     wxVersionTooLow: false,
     suspended: false,
     lastRecordEvent: "",
@@ -93,6 +94,8 @@
     results: null,
     hasUserPermission: false,
     customData: null,
+    hasRecordPermission: false,
+    recordPermissionCallback: null,
   }
 
   function resetRuntime() {
@@ -126,26 +129,34 @@
     runtime.customData = null;
   }
 
-  function showNotAccessHint() {
+  function showNotAccessHint(callback) {
     if (!runtime.hasShowAccessHint) {
       runtime.hasShowAccessHint = true;
-      wx.showModal({
-        title: '提示',
-        content: '请授权录音后才能正常使用',
-        showCancel: false,
-        confirmText: "知道了",
-        success: function (res3) {
-          //TODO: to open setting page
-          // wx.openSetting();
-        }
-      });
+      if (callback) {
+        try {
+          if (runtime.recordPermissionCallback) {
+            runtime.recordPermissionCallback(callback)
+            runtime.recordPermissionCallback = null;
+          } else {
+            setTimeout(function () {
+              callback(false);
+            }, 1);
+          }
+        } catch (e) { }
+      }
+    }else{
+      if (callback){
+        setTimeout(function(){
+          callback(false);
+        }, 1);
+      }
     }
   }
 
   function init(options) {
-    try{
-      checkPermission();
-    } catch (e) {}
+    try {
+      checkPermission(false);
+    } catch (e) { }
 
     try {
       updateConfigWithOptions(options);
@@ -174,12 +185,23 @@
     return this.replace(regExp, RepText);
   }
 
-  function checkPermission(){
+  function setRecordPermissionCallback(callback){
+    runtime.recordPermissionCallback = callback;
+  }
+
+  function checkPermission(showHint, callback) {
     wx.getSetting({
       success: (res2) => {
         if (res2.authSetting["scope.record"] === false) {
           runtime.noRecordPermission = true;
-          showNotAccessHint();
+          runtime.hasRecordPermission = false;
+          if (callback)
+            callback(false);
+        } else if (res2.authSetting["scope.record"] === true) {
+          runtime.hasRecordPermission = true;
+          runtime.noRecordPermission = false;
+          if (callback)
+            callback(true);
         }
         if (res2.authSetting["scope.userInfo"] === true) {
           runtime.hasUserPermission = true;
@@ -208,7 +230,9 @@
       },
       fail: (err) => {
         runtime.noRecordPermission = true;
-        showNotAccessHint();
+        runtime.hasRecordPermission = false;
+        if (callback)
+          callback(false);
       }
     });
   }
@@ -226,18 +250,18 @@
       if (options.debugLog) {
         config.debugLog = options.debugLog;
       }
-      if (options.region){
+      if (options.region) {
         config.region = options.region;
       }
-      if (options.detectSuffix){
+      if (options.detectSuffix) {
         config.detectSuffix = options.detectSuffix;
         config.detectV2Suffix = options.detectSuffix;
       }
     }
   }
 
-  function printDebugLog(){
-    if (config.debugLog){
+  function printDebugLog() {
+    if (config.debugLog) {
       wx.showModal({
         title: 'buyfull debug',
         content: runtime.debugLog,
@@ -275,11 +299,11 @@
       safe_call(fail, err.INVALID_BUYFULL_TOKENURL);
       return;
     }
-    if (!checkRegionCode(config.region)){
+    if (!checkRegionCode(config.region)) {
       safe_call(fail, err.INVALID_REGION);
       return;
     }
-    if (!checkOptions(options)){
+    if (!checkOptions(options)) {
       safe_call(fail, err.INVALID_DETECT_OPTIONS);
       return;
     }
@@ -289,36 +313,56 @@
       return;
     }
 
-    try {
-      checkPermission();
-    } catch (e) { }
-
-    wx.authorize({
-      scope: 'scope.record',
-      success: function () {
-        runtime.noRecordPermission = false;
-
-        if ((Date.now() - runtime.lastDetectTime) > 10000) {
-          //incase some unknow exception,dead line is 10s
+    if (runtime.hasRecordPermission) {
+      _startDetect(options, success, fail);
+    } else if (runtime.noRecordPermission){
+      resetRuntime();
+      showNotAccessHint(function(hasGotoSetting){
+        if (!hasGotoSetting){
+          safe_call(fail, err.NO_RECORD_PERMISSION);
+        }else{
+          //check setting again to see if user changed options
+          checkPermission(false, function(hasRecordPermission){
+            if (hasRecordPermission){
+              _startDetect(options, success, fail);
+            }else{
+              safe_call(fail, err.NO_RECORD_PERMISSION);
+            }
+          });
+        }
+      });
+    } else {
+      wx.authorize({
+        scope: 'scope.record',
+        success: function () {
+          runtime.noRecordPermission = false;
+          runtime.hasRecordPermission = true;
+          _startDetect(options, success, fail);
+        },
+        fail: function (res) {
+          runtime.noRecordPermission = true;
+          runtime.hasRecordPermission = false;
           resetRuntime();
+          safe_call(fail, err.NO_RECORD_PERMISSION);
         }
-        if (runtime.success_cb || runtime.fail_cb) {
-          safe_call(fail, err.DUPLICATE_DETECT);
-          return;
-        }
-        resetRuntime();
-        checkOptions(options);//for set param;
-        runtime.success_cb = success;
-        runtime.fail_cb = fail;
-        doCheck();
-      },
-      fail: function (res) {
-        showNotAccessHint();
-        runtime.noRecordPermission = true;
-        resetRuntime();
-        safe_call(fail, err.NO_RECORD_PERMISSION);
-      }
-    });
+      });
+    }
+  }
+
+  function _startDetect(options, success, fail) {
+    if ((Date.now() - runtime.lastDetectTime) > 10000) {
+      //incase some unknow exception,dead line is 10s
+      resetRuntime();
+    }
+    if (runtime.success_cb || runtime.fail_cb) {
+      safe_call(fail, err.DUPLICATE_DETECT);
+      return;
+    }
+    resetRuntime();
+    checkOptions(options);//for set param;
+    runtime.success_cb = success;
+    runtime.fail_cb = fail;
+    doCheck();
   }
 
   function checkRegionCode(code) {
@@ -326,8 +370,8 @@
       case 'ECN':
       case 'NCN':
       case 'SCN':
-      // case 'NA0':
-      // case 'AS0':
+        // case 'NA0':
+        // case 'AS0':
         return true;
       default:
 
@@ -335,27 +379,27 @@
     return false;
   }
 
-  function checkOptions(options){
-    if (runtime.region == ""){
+  function checkOptions(options) {
+    if (runtime.region == "") {
       runtime.region = config.region;
     }
     runtime.detectSuffix = config.detectSuffix;
-    if (options){
+    if (options) {
       if (options.version == "v2") {
         runtime.detectVersion = options.version
         runtime.detectSuffix = config.detectV2Suffix;
-      }else{
+      } else {
         runtime.detectVersion = ""
-        runtime.detectSuffix = config.detectSuffix;        
+        runtime.detectSuffix = config.detectSuffix;
       }
 
-      if (options.detectSuffix){
+      if (options.detectSuffix) {
         runtime.detectSuffix = options.detectSuffix;
       }
       if (options.region) {
         runtime.region = options.region;
       }
-      if (!checkRegionCode(runtime.region)){
+      if (!checkRegionCode(runtime.region)) {
         return false;
       }
 
@@ -370,7 +414,7 @@
     return true;
   }
 
-  function initcheckFormatData(){
+  function initcheckFormatData() {
     if (runtime.deviceInfo == null) {
       try {
         var res = wx.getSystemInfoSync()
@@ -380,7 +424,7 @@
           runtime.checkFormatData = [
             { priority: 1, src: "auto", duration: 1200 },
             { priority: 0, src: "buildInMic", duration: 1200 },
-            
+
           ];
           checkRecordConfig(runtime.checkFormatData);
         } else if (runtime.deviceInfo.platform == "android") {
@@ -429,7 +473,7 @@
           } catch (e) {
 
           }
-        }else{
+        } else {
           runtime.checkFormatData = [
             { priority: 1, src: "auto", duration: 1200 },
           ];
@@ -444,7 +488,7 @@
     }
   }
 
-  function showWX667Hint(){
+  function showWX667Hint() {
     if (!runtime.hasShowVersionHint) {
       runtime.wxVersionTooLow = true;
       wx.showModal({
@@ -474,7 +518,7 @@
     }
   }
 
-  function loadRecordConfig(){
+  function loadRecordConfig() {
     //load local config first
     try {
       var record_option_json = wx.getStorageSync("buyfull_record_option")
@@ -486,7 +530,7 @@
     } catch (e) {
     }
     //load global model config then
-    if (!runtime.checkFormatData){
+    if (!runtime.checkFormatData) {
       var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ", "_"));
       var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase().replaceAll(" ", "_"));
       var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase().replaceAll(" ", "_"));
@@ -524,7 +568,7 @@
 
   function saveRecordConfig() {
     //save local config
-    if (runtime.hasSaveRecordConfig){
+    if (runtime.hasSaveRecordConfig) {
       return;
     }
     runtime.hasSaveRecordConfig = true;
@@ -538,9 +582,9 @@
     }
   }
 
-  function checkRecordConfig(config){
-    try{
-      if (config && config.length >= 1){
+  function checkRecordConfig(config) {
+    try {
+      if (config && config.length >= 1) {
         for (var index = 0; index < config.length; ++index) {
           config[index].power = 0;
           config[index].success = 0;
@@ -549,13 +593,13 @@
         }
         return true;
       }
-    }catch(e){
-      
+    } catch (e) {
+
     }
     return false;
   }
 
-  function loadDefaultRecordConfig(){
+  function loadDefaultRecordConfig() {
     //try default model config then
     var brand = runtime.deviceInfo.brand.toLowerCase();
     debugLog("load default config: " + brand);
@@ -597,11 +641,11 @@
         { priority: 0, src: "auto", duration: 1550 },
       ];
     }
-    
+
     if (!runtime.deviceInfo.android7) {
       runtime.checkFormatData.shift();
     }
-    if (!runtime.deviceInfo.wx667){
+    if (!runtime.deviceInfo.wx667) {
       runtime.checkFormatData = [
         { priority: 0, src: "auto", duration: 1550 },
       ];
@@ -621,7 +665,7 @@
 
   function handleRecordResult(retCode, retData) {
     //go though return data
-    if (retData.result && retData.result.length > 0){
+    if (retData.result && retData.result.length > 0) {
       for (var index = 0; index < retData.result.length; ++index) {
         retData.result[index].channel = index;
       }
@@ -632,10 +676,10 @@
       var validResult = [];
       var tags = [];
       for (var index = 0; index < sortedArray.length; ++index) {
-        if (sortedArray[index].tags.length > 0){
+        if (sortedArray[index].tags.length > 0) {
           validResult.push(sortedArray[index]);
-          for (var i = 0; i < sortedArray[index].tags.length; ++i){
-            if (tags.indexOf(sortedArray[index].tags[i]) == -1){
+          for (var i = 0; i < sortedArray[index].tags.length; ++i) {
+            if (tags.indexOf(sortedArray[index].tags[i]) == -1) {
               tags.push(sortedArray[index].tags[i]);
             }
           }
@@ -644,17 +688,17 @@
       retData.result = validResult;
       retData.count = validResult.length;
       retData.allTags = tags;
-    }else{
+    } else {
       retData.count = 0;
       retData.result = [];
       retData.sortByPowerResult = [];
       retData.rawResult = [];
       retData.allTags = [];
     }
-    
-    if (retData.validResultCount > 0){
+
+    if (retData.validResultCount > 0) {
       handleSuccessRecord(0, retData.start + "|" + retData.power);
-    }else if (retCode == 0){
+    } else if (retCode == 0) {
       handleFailRecord(retCode, retData.start + "|" + retData.power);
     } else if (retCode >= 9 && retCode <= 20) {
       handleFailRecord(retCode, retData.start + "|" + retData.period);
@@ -666,8 +710,8 @@
     runtime.results = retData;
   }
 
-  
-  function handleSuccessRecord(retCode, retInfo){
+
+  function handleSuccessRecord(retCode, retInfo) {
     //if succeed , improve priority
     var info = retInfo.split("|")
     var power = 0;
@@ -675,35 +719,35 @@
 
     startTime = parseInt(info[0])
     power = parseFloat(info[1])
-    
+
     runtime.checkFormatData[0].startTime = startTime;
     runtime.checkFormatData[0].power = power;
     runtime.checkFormatData[0].success += 20;
-    if (runtime.checkFormatData[0].success > 60){
+    if (runtime.checkFormatData[0].success > 60) {
       runtime.checkFormatData[0].success = 60;
     }
     // saveRecordConfig();
   }
 
-  function handleFailRecord(retCode, retInfo){
-    if (retCode == 9){
+  function handleFailRecord(retCode, retInfo) {
+    if (retCode == 9) {
       runtime.checkFormatData[0].power = -120;
       return;
     }
 
-    if (retCode == 10){
+    if (retCode == 10) {
       //record is empty
-      if (!runtime.deviceInfo.wx667){
+      if (!runtime.deviceInfo.wx667) {
         //nothing we can do if wx is below 6.6.7
         showWX667Hint();
-      }else{
+      } else {
         runtime.checkFormatData[0].power = -120;
         //if only one option left, show not support
-        if (runtime.checkFormatData.length == 1){
+        if (runtime.checkFormatData.length == 1) {
           showNotSupportHint();
         }
       }
-        
+
       return;
     }
 
@@ -711,22 +755,22 @@
     var power = 0;
     var startTime = 0;
     var moreLength = 0;
-    if (retCode == 0){
+    if (retCode == 0) {
       startTime = parseInt(info[0])
       power = parseFloat(info[1])
-    }else if (retCode == 11){
+    } else if (retCode == 11) {
       startTime = parseInt(info[0])
       moreLength = parseInt(info[1])
     }
 
     runtime.checkFormatData[0].startTime = startTime;
 
-    if (retCode == 11){
+    if (retCode == 11) {
       //record is too short
       if (retCode == 11 && (startTime <= 500 && moreLength <= 1000)) {
-        if (runtime.checkFormatData[0].duration == 1800){
+        if (runtime.checkFormatData[0].duration == 1800) {
           runtime.checkFormatData[0].power = -120;
-        }else{
+        } else {
           runtime.checkFormatData[0].duration += (((moreLength + 50) / 50) * 50);
           if (runtime.checkFormatData[0].duration > 1800) {
             runtime.checkFormatData[0].duration = 1800;
@@ -735,7 +779,7 @@
         }
 
         return;
-      }else{
+      } else {
         runtime.checkFormatData[0].power = -120;
         runtime.checkFormatData[0].duration = 1800;
         //this option is not valid now
@@ -746,18 +790,18 @@
       return;
     }
 
-    if (retCode == 0){
-      if (power != 0){
+    if (retCode == 0) {
+      if (power != 0) {
         runtime.checkFormatData[0].power = power;
       }
 
-      if (runtime.checkFormatData[0].success > 0){
+      if (runtime.checkFormatData[0].success > 0) {
         --runtime.checkFormatData[0].success;
       }
     }
   }
 
-  function getScore(config){
+  function getScore(config) {
     var success_score = config.success;
     if (success_score > 60) {
       success_score = 60;
@@ -766,29 +810,29 @@
     }
 
     var power_score = 0;
-    if (config.power >= 0){
+    if (config.power >= 0) {
       power_score = 20;
-    }else if (config.power < -120){
+    } else if (config.power < -120) {
       power_score = 0;
-    }else{
+    } else {
       power_score = ((120 + config.power) / 120.0) * 20
     }
 
     var duration_score = 0;
-    if (config.duration <= 1000){
+    if (config.duration <= 1000) {
       duration_score = 8;
-    }else if (config.duration >= 1800){
+    } else if (config.duration >= 1800) {
       duration_score = 0;
-    }else{
+    } else {
       duration_score = (1800 - config.duration) / 1000.0 * 8
     }
 
     var start_score = 0;
-    if (config.startTime <= 0){
+    if (config.startTime <= 0) {
       start_score = 10;
-    }else if (config.startTime >= 1000){
+    } else if (config.startTime >= 1000) {
       start_score = 0;
-    }else{
+    } else {
       start_score = (1000 - config.startTime) / 1000.0 * 10
     }
 
@@ -802,21 +846,21 @@
     if (checkVal1 > checkVal2) return -1;
     return 0;
   }
-  
+
   function doCheck() {
     if (!runtime.checkFormatData || runtime.isRequestingBuyfullToken || runtime.isRequestingQiniuToken || runtime.isUploading || runtime.isDetecting)
       return;
 
     if ((Date.now() - runtime.lastDetectTime) > config.detectTimeout) {
       //incase deadloop
-      if (runtime.resultUrl != ""){
+      if (runtime.resultUrl != "") {
         //if it has final result, let's return it
-        if (!runtime.resultUrl.startsWith("ERROR_")){
+        if (!runtime.resultUrl.startsWith("ERROR_")) {
           callSuccess();
-        } else{
+        } else {
           callFail(err.DETECT_TIMEOUT);
         }
-      }else{
+      } else {
         callFail(err.DETECT_TIMEOUT);
       }
       return;
@@ -839,13 +883,13 @@
         runtime.buyfullToken = "";
         reDoCheck();
         // safe_call(fail_cb, err.GET_BUYFULL_TOKEN_TIMEOUT);
-      }else{
+      } else {
         if (runtime.buyfullToken == 'ERROR_SERVER') {
           callFail(err.GET_BUYFULL_TOKEN_ERROR);
         } else if (runtime.buyfullToken == 'ERROR_HTTP') {
           callFail(err.NETWORK_ERROR);
         }
-      } 
+      }
       return;
     } else {
       hasBuyfullToken = true;
@@ -873,7 +917,7 @@
         runtime.qiniuToken = "";
         reDoCheck();
         // safe_call(fail_cb, err.GET_QINIU_TOKEN_TIMEOUT);
-      }else{
+      } else {
         if (runtime.qiniuToken == 'ERROR_SERVER') {
           callFail(err.GET_QINIU_TOKEN_ERROR);
         } else if (runtime.qiniuToken == 'ERROR_HTTP') {
@@ -898,7 +942,7 @@
         // runtime.qiniuToken = "";
         runtime.qiniuUrl == "";
         reDoCheck();
-      }else{
+      } else {
         if (runtime.qiniuUrl == 'ERROR_UPLOAD_FAIL') {
           callFail(err.UPLOAD_FAIL);
         } else if (runtime.qiniuUrl == 'ERROR_JSON') {
@@ -908,7 +952,7 @@
         } else if (runtime.qiniuUrl == 'ERROR_REGION') {
           callFail(err.INVALID_REGION);
         }
-      } 
+      }
       return;
     } else {
       hasUploaded = true;
@@ -924,7 +968,7 @@
         debugLog("DETECT_TIMEOUT");
         runtime.resultUrl = "";
         reDoCheck();
-      }else{
+      } else {
         if (runtime.resultUrl == 'ERROR_SERVER') {
           callFail(err.DETECT_ERROR);
         } else if (runtime.resultUrl == 'ERROR_HTTP') {
@@ -936,14 +980,14 @@
         } else if (runtime.resultUrl == "ERROR_SDK_VERSION") {
           callFail(err.SDK_VERSION_NOT_MATCH);
         }
-      }  
+      }
       return;
     } else {
       callSuccess();
     }
   }
 
-  function callSuccess(){
+  function callSuccess() {
     //success callback
     debugLog("detect use time: " + (Date.now() - runtime.lastDetectTime));
     runtime.fail_cb = null;
@@ -956,7 +1000,7 @@
     }
   }
 
-  function callFail(errcode){
+  function callFail(errcode) {
     debugLog("detect fail with time: " + (Date.now() - runtime.lastDetectTime));
     runtime.success_cb = null;
     var fail_cb = runtime.fail_cb;
@@ -964,7 +1008,7 @@
     safe_call(fail_cb, errcode);
   }
 
-  function reDoCheck(){
+  function reDoCheck() {
     if (runtime.suspended)
       return;
     setTimeout(doCheck, 1);
@@ -1096,21 +1140,21 @@
           }
           if (code && (code == 401 || code == 404)) {
             //token expired, request new one
-            if (buyfullToken && buyfullToken.length > 0){
+            if (buyfullToken && buyfullToken.length > 0) {
               runtime.buyfullToken = buyfullToken;
               debugLog("new buyfulltoken is:" + buyfullToken);
             }
-            else{
+            else {
               runtime.buyfullToken = "REFRESH";
             }
-            
+
             if (code == 404)
               runtime.qiniuToken = "";
           }
           if (region && region.length > 0 && checkRegionCode(region)) {
             runtime.region = region;
           }
-          if (code == 302 && buyfullToken && buyfullToken.length > 0){
+          if (code == 302 && buyfullToken && buyfullToken.length > 0) {
             runtime.buyfullToken = buyfullToken;
             debugLog("new buyfulltoken is:" + buyfullToken);
           }
@@ -1142,15 +1186,15 @@
   function onShow(options) {
     try {
       debugLog("buyfull onShow");
-      if (runtime.suspended){
+      if (runtime.suspended) {
         runtime.suspended = false;
-        if (runtime.isRecording){
+        if (runtime.isRecording) {
           debugLog("restart record");
           runtime.isRecording = false;
           runtime.mp3FilePath = "";
           retryRecord();
         }
-        if (runtime.success_cb || runtime.fail_cb){
+        if (runtime.success_cb || runtime.fail_cb) {
           debugLog("restart detect");
           reDoCheck();
         }
@@ -1185,7 +1229,7 @@
     }
   }
 
-  function registerAppEventHandler(){
+  function registerAppEventHandler() {
     var oldOnShow = getApp().onShow;
     var oldOnHide = getApp().onHide;
 
@@ -1202,10 +1246,10 @@
     //don't use it anymore
   }
 
-  function retryRecord(){
+  function retryRecord() {
     if (runtime.suspended)
       return;
-    setTimeout(function(){
+    setTimeout(function () {
       doRecord(true);
     }, 1);
   }
@@ -1247,7 +1291,7 @@
 
         if (runtime.isRecording) {
           //if it's not onhide, there must be something wrong
-          if (!runtime.suspended){
+          if (!runtime.suspended) {
             runtime.isRecording = false;
             runtime.mp3FilePath = "ERROR_RECORD";
             reDoCheck();
@@ -1260,7 +1304,7 @@
         runtime.lastRecordEvent = "ONSTOP";
         runtime.lastRecordError = null;
 
-        if (runtime.isRecording){
+        if (runtime.isRecording) {
           runtime.isRecording = false;
           if (runtime.mp3FilePath == '') {
             if ((res.duration < 1100) || (res.fileSize <= 0)) {
@@ -1280,24 +1324,24 @@
   }
 
 
-  function doStartRecorder(isRetry){
+  function doStartRecorder(isRetry) {
     //each time do sort 
-    if (runtime.checkFormatData.length > 1){
+    if (runtime.checkFormatData.length > 1) {
       runtime.checkFormatData.sort(compareRecordConfig);
       debugLog("sort config: " + JSON.stringify(runtime.checkFormatData));
     }
 
     runtime.record_options.audioSource = runtime.checkFormatData[0].src;
     runtime.record_options.duration = runtime.checkFormatData[0].duration;
-    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.lastRecordEvent );
+    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.lastRecordEvent);
 
-    if (runtime.lastRecordEvent == "START"){
+    if (runtime.lastRecordEvent == "START") {
       //if time is too long, that's something wrong
       if ((Date.now() - runtime.lastRecordTime) > 2000) {
         wx.getRecorderManager().stop();
         runtime.lastRecordEvent = "STOP";
       }
-    }else if (runtime.lastRecordEvent == "ONSTART") {
+    } else if (runtime.lastRecordEvent == "ONSTART") {
       //if time is too long, that's something wrong
       if ((Date.now() - runtime.lastRecordTime) < 2000) {
         runtime.isRecording = true;
@@ -1361,7 +1405,7 @@
     }
     runtime.isUploading = true;
     var fileName = runtime.mp3FilePath.split('//')[1]
-    var onlyFileName = fileName.split(".",1)[0]
+    var onlyFileName = fileName.split(".", 1)[0]
     var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + "_" + Date.now() + ".mp3"
 
     var formData = {
@@ -1443,7 +1487,7 @@
     try {
       var hashCode = wx.getStorageSync("buyfull_hash")
       if (hashCode) {
-        if (hashCode != ""  && hashCode.startsWith(config.appKey + ":"))
+        if (hashCode != "" && hashCode.startsWith(config.appKey + ":"))
           runtime.hash = hashCode;
       }
     } catch (e) {
@@ -1491,12 +1535,12 @@
     }
 
     var userID = [runtime.hash];
-    if (runtime.userID){
+    if (runtime.userID) {
       userID.push(runtime.userID)
     }
-    
-    if (runtime.customData){
-      if (userID.length == 1){
+
+    if (runtime.customData) {
+      if (userID.length == 1) {
         userID.push("")
       }
       userID.push(JSON.stringify(runtime.customData));
@@ -1504,10 +1548,10 @@
     userID = userID.join(":")
 
     var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(userID) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
-    if (runtime.userInfo != ""){
+    if (runtime.userInfo != "") {
       url += "/" + encodeURIComponent(runtime.userInfo);
     }
-    
+
     return url;
   }
 
@@ -1520,21 +1564,21 @@
       loadSetHash()
     }
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
-    if (detectUrl == null){
+    if (detectUrl == null) {
       runtime.resultUrl = "ERROR_REGION";
       reDoCheck();
       return;
     }
     debugLog("doDetect:" + detectUrl);
 
-    if (runtime.deviceInfo.brand == "devtools"){
+    if (runtime.deviceInfo.brand == "devtools") {
       //don't do check if it's weixin devtools
       clearAbortTimer();
-      setTimeout(function(){
+      setTimeout(function () {
         runtime.resultUrl = "ERROR_NO_RESULT";
         reDoCheck();
       });
-      
+
       return;
     }
 
@@ -1552,11 +1596,11 @@
         var result = res.data.result;
         if (runtime.resultUrl == '') {
           debugLog("data is:" + JSON.stringify(res.data));
-          if (runtime.detectVersion == "v2"){
+          if (runtime.detectVersion == "v2") {
             if (code == 0) {
-              if (result){
+              if (result) {
                 runtime.resultUrl = "OK";
-              }else{
+              } else {
                 runtime.resultUrl = "ERROR_NO_RESULT";
               }
               handleRecordResult(code, res.data);
@@ -1574,7 +1618,7 @@
                 runtime.resultUrl = "ERROR_SERVER";
               }
             }
-          }else{
+          } else {
             if (code == 0 && result && result.length > 0) {
               runtime.resultUrl = result;
               handleSuccessRecord(code, res.data.info)
@@ -1623,5 +1667,5 @@
   }
 
   ////////////////////////////////////////////////////////////////////
-  
+
 })();
