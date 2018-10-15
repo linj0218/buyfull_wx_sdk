@@ -229,8 +229,6 @@
         }
       },
       fail: (err) => {
-        runtime.noRecordPermission = true;
-        runtime.hasRecordPermission = false;
         if (callback)
           callback(false);
       }
