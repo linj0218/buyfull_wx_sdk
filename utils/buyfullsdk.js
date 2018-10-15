@@ -145,9 +145,9 @@
           }
         } catch (e) { }
       }
-    }else{
-      if (callback){
-        setTimeout(function(){
+    } else {
+      if (callback) {
+        setTimeout(function () {
           callback(false);
         }, 1);
       }
@@ -155,7 +155,7 @@
   }
 
   function init(options) {
-    if (!runtime.hadInit){
+    if (!runtime.hadInit) {
       runtime.hadInit = true;
 
       try {
@@ -190,8 +190,8 @@
     return this.replace(regExp, RepText);
   }
 
-  function setRecordPermissionCallback(callback){
-    if (!runtime.hasRecordPermission){
+  function setRecordPermissionCallback(callback) {
+    if (!runtime.hasRecordPermission) {
       runtime.recordPermissionCallback = callback;
     }
   }
@@ -237,11 +237,11 @@
         }
       },
       fail: (err) => {
-        if (retryCount > 0){
-          setTimeout(function(){
+        if (retryCount > 0) {
+          setTimeout(function () {
             checkPermission(retryCount - 1, callback);
           }, 100);
-        }else{
+        } else {
           if (callback)
             callback(false);
         }
@@ -327,18 +327,18 @@
 
     if (runtime.hasRecordPermission) {
       _startDetect(options, success, fail);
-    } else if (runtime.noRecordPermission){
+    } else if (runtime.noRecordPermission) {
       resetRuntime();
-      showNotAccessHint(function(hasGotoSetting){
-        if (!hasGotoSetting){
+      showNotAccessHint(function (hasGotoSetting) {
+        if (!hasGotoSetting) {
           safe_call(fail, err.NO_RECORD_PERMISSION);
-        }else{
+        } else {
           //check setting again to see if user changed options
-          checkPermission(3, function(hasRecordPermission){
-            if (hasRecordPermission){
+          checkPermission(3, function (hasRecordPermission) {
+            if (hasRecordPermission) {
               runtime.recordPermissionCallback = null;
               _startDetect(options, success, fail);
-            }else{
+            } else {
               safe_call(fail, err.NO_RECORD_PERMISSION);
             }
           });
@@ -349,7 +349,7 @@
     }
   }
 
-  function _tryAuthorize(retryCount, options, success, fail){
+  function _tryAuthorize(retryCount, options, success, fail) {
     wx.authorize({
       scope: 'scope.record',
       success: function () {
@@ -359,11 +359,11 @@
         _startDetect(options, success, fail);
       },
       fail: function (res) {
-        if (retryCount > 0){
-          setTimeout(function(){
+        if (retryCount > 0) {
+          setTimeout(function () {
             _tryAuthorize(retryCount - 1, options, success, fail);
-          },100);
-        }else{
+          }, 100);
+        } else {
           runtime.noRecordPermission = true;
           runtime.hasRecordPermission = false;
           resetRuntime();
@@ -410,6 +410,9 @@
     runtime.detectSuffix = config.detectSuffix;
     if (options) {
       if (options.version == "v2") {
+        runtime.detectVersion = options.version
+        runtime.detectSuffix = config.detectV2Suffix;
+      } else if (options.version == "check") {
         runtime.detectVersion = options.version
         runtime.detectSuffix = config.detectV2Suffix;
       } else {
@@ -1628,6 +1631,23 @@
                 runtime.resultUrl = "ERROR_NO_RESULT";
               }
               handleRecordResult(code, res.data);
+            } else {
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code >= 9 && code <= 20) {
+                handleRecordResult(code, res.data);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
+            }
+          } else if (runtime.detectVersion == "check") {
+            if (code == 0) {
+              runtime.resultUrl = res.data.token;
             } else {
               if (code == 100) {
                 //wrong buyfull token
