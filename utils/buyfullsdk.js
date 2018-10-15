@@ -96,6 +96,7 @@
     customData: null,
     hasRecordPermission: false,
     recordPermissionCallback: null,
+    hadInit: false,
   }
 
   function resetRuntime() {
@@ -154,25 +155,29 @@
   }
 
   function init(options) {
-    try {
-      checkPermission(false);
-    } catch (e) { }
+    if (!runtime.hadInit){
+      runtime.hadInit = true;
 
-    try {
-      updateConfigWithOptions(options);
-    } catch (e) { }
+      try {
+        checkPermission(3);
+      } catch (e) { }
 
-    try {
-      initcheckFormatData();
-    } catch (e) { }
+      try {
+        updateConfigWithOptions(options);
+      } catch (e) { }
 
-    try {
-      registerAppEventHandler();
-    } catch (e) { }
+      try {
+        initcheckFormatData();
+      } catch (e) { }
 
-    try {
-      resetRuntime();
-    } catch (e) { }
+      try {
+        registerAppEventHandler();
+      } catch (e) { }
+
+      try {
+        resetRuntime();
+      } catch (e) { }
+    }
   }
 
   function destory() {
@@ -186,10 +191,12 @@
   }
 
   function setRecordPermissionCallback(callback){
-    runtime.recordPermissionCallback = callback;
+    if (!runtime.hasRecordPermission){
+      runtime.recordPermissionCallback = callback;
+    }
   }
 
-  function checkPermission(showHint, callback) {
+  function checkPermission(retryCount, callback) {
     wx.getSetting({
       success: (res2) => {
         if (res2.authSetting["scope.record"] === false) {
@@ -200,6 +207,7 @@
         } else if (res2.authSetting["scope.record"] === true) {
           runtime.hasRecordPermission = true;
           runtime.noRecordPermission = false;
+          runtime.recordPermissionCallback = null;
           if (callback)
             callback(true);
         }
@@ -229,8 +237,14 @@
         }
       },
       fail: (err) => {
-        if (callback)
-          callback(false);
+        if (retryCount > 0){
+          setTimeout(function(){
+            checkPermission(retryCount - 1, callback);
+          }, 100);
+        }else{
+          if (callback)
+            callback(false);
+        }
       }
     });
   }
@@ -320,8 +334,9 @@
           safe_call(fail, err.NO_RECORD_PERMISSION);
         }else{
           //check setting again to see if user changed options
-          checkPermission(false, function(hasRecordPermission){
+          checkPermission(3, function(hasRecordPermission){
             if (hasRecordPermission){
+              runtime.recordPermissionCallback = null;
               _startDetect(options, success, fail);
             }else{
               safe_call(fail, err.NO_RECORD_PERMISSION);
@@ -330,21 +345,32 @@
         }
       });
     } else {
-      wx.authorize({
-        scope: 'scope.record',
-        success: function () {
-          runtime.noRecordPermission = false;
-          runtime.hasRecordPermission = true;
-          _startDetect(options, success, fail);
-        },
-        fail: function (res) {
+      _tryAuthorize(3, options, success, fail);
+    }
+  }
+
+  function _tryAuthorize(retryCount, options, success, fail){
+    wx.authorize({
+      scope: 'scope.record',
+      success: function () {
+        runtime.noRecordPermission = false;
+        runtime.hasRecordPermission = true;
+        runtime.recordPermissionCallback = null;
+        _startDetect(options, success, fail);
+      },
+      fail: function (res) {
+        if (retryCount > 0){
+          setTimeout(function(){
+            _tryAuthorize(retryCount - 1, options, success, fail);
+          },100);
+        }else{
           runtime.noRecordPermission = true;
           runtime.hasRecordPermission = false;
           resetRuntime();
           safe_call(fail, err.NO_RECORD_PERMISSION);
         }
-      });
-    }
+      }
+    });
   }
 
   function _startDetect(options, success, fail) {

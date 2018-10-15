@@ -1,26 +1,16 @@
 //index.js
 //获取应用实例
-const detector = require("../../utils/buyfullsdk");
-const openRecordSetting = require("../openSettingTemp/openSettingTemp.js");
-
 var app = getApp()
+var detector = app.detector //请查看app.js
 Page({
   isDetecting: false,//正在检测中
   retryCount : 3,//重试次数
 
   onLoad: function () {
-    detector.init({
-      //这只是个demo,请联系百蝠获取appkey,同时布署自己的buyfull token service
-      // appKey:"121e87d73077403eadd9ab4fec2d9973",
-      // buyfullTokenUrl:"https://sandbox.buyfull.cc/wx/buyfulltoken",
-      appKey: "75ba120532f44aa7a8cd431a2c2a50ef",
-      buyfullTokenUrl: "https://sandbox.buyfull.cc/testycq2/buyfulltoken",
-      // abortTimeout: 3000,//单次网络请求超时
-      // detectTimeout: 6000,//总超时
-      // debugLog: true,//true可以打开debugLog
-    });
     //用户拒绝录音授权后会弹出提示框，每次运行只会打开一次
     //请把openSettingTemp中的模板import进来，具体请查看index.wxml和index.wxss
+    //如果此页面没有调用录音功能，可以不加载此代码以及相应的模板
+    const openRecordSetting = require("../openSettingTemp/openSettingTemp.js");
     openRecordSetting.bindRecordSettingForPage(this,detector); 
   },
 
