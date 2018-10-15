@@ -35,7 +35,7 @@
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     region: "ECN",
     detectSuffix: '?soundtag-decode/decodev3/place/MP3',
-    detectV2Suffix: '?soundtag-decode/decodev4/place/MP3',
+    detectV2Suffix: '?soundtag-decode/decodev5/place/MP3',
   }
 
   module.exports = {
@@ -1561,25 +1561,18 @@
       return null;
     }
 
-    var userID = [runtime.hash];
-    if (runtime.userID) {
-      userID.push(runtime.userID)
+    var infos = {
+      "appkey": config.appKey,
+      "buyfulltoken": runtime.buyfullToken,
+      "ip": runtime.ip,
+      "hash": runtime.hash,
+      "userid": runtime.userID,
+      "customdata": runtime.customData,
+      "deviceinfo": runtime.deviceInfo,
+      "qiniukey": serverUrl + "/" + qiniuKey,
+      "userinfo": runtime.userInfo
     }
-
-    if (runtime.customData) {
-      if (userID.length == 1) {
-        userID.push("")
-      }
-      userID.push(runtime.customData);
-    }
-    userID = JSON.stringify(userID)
-
-    var url = serverUrl + "/" + qiniuKey + runtime.detectSuffix + "/" + config.appKey + "/" + runtime.buyfullToken + "/" + encodeURIComponent(runtime.ip) + "/" + encodeURIComponent(userID) + "/" + encodeURIComponent(runtime.deviceInfo.str) + "/" + encodeURIComponent(qiniuKey);
-    if (runtime.userInfo != "") {
-      url += "/" + encodeURIComponent(runtime.userInfo);
-    }
-
-    return url;
+    return serverUrl + "/" + qiniuKey + runtime.detectSuffix  + "/" + encodeURIComponent(JSON.stringify(infos));
   }
 
 
