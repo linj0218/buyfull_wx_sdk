@@ -89,7 +89,7 @@
     lastRecordError: null,
     checkFormatData: null,
     hasSaveRecordConfig: false,
-    userID: null,
+    userID: "",
     detectVersion: "",
     results: null,
     hasUserPermission: false,
@@ -125,7 +125,7 @@
     runtime.qiniuUrl = '';
     runtime.resultUrl = '';
     runtime.mp3FilePath = '';
-    runtime.userID = null;
+    runtime.userID = "";
     runtime.results = null;
     runtime.customData = null;
   }
@@ -1567,8 +1567,8 @@
       "ip": runtime.ip,
       "hash": runtime.hash,
       "userid": runtime.userID,
-      "customdata": runtime.customData,
-      "deviceinfo": runtime.deviceInfo,
+      "customdata": runtime.customData ? JSON.stringify(runtime.customData) : "",
+      "deviceinfo": runtime.deviceInfo.str,
       "qiniukey": serverUrl + "/" + qiniuKey,
       "userinfo": runtime.userInfo
     }
