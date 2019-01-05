@@ -97,6 +97,8 @@
     hasRecordPermission: false,
     recordPermissionCallback: null,
     hadInit: false,
+    hasInitConnection: false,
+    fakeMP3Path: '',
   }
 
   function resetRuntime() {
@@ -176,6 +178,10 @@
 
       try {
         resetRuntime();
+      } catch (e) { }
+
+      try {
+        reDoCheck();
       } catch (e) { }
     }
   }
@@ -575,7 +581,7 @@
             if (checkRecordConfig(newconfig)) {
               debugLog("load config: " + configurl);
               runtime.checkFormatData = newconfig;
-              if (runtime.success_cb || runtime.fail_cb) {
+              {
                 reDoCheck();
               }
             } else {
@@ -682,7 +688,7 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
+    {
       reDoCheck();
     }
   }
@@ -927,8 +933,16 @@
 
     //check & record mp3 file
     if (!runtime.isRecording) {
+      if (!runtime.hasInitConnection) {
+        //create a fake mp3 file for upload
+        runtime.fakeMP3Path = createFakeMP3();
+        hasMP3 = true;
+      } 
+      
       if (runtime.mp3FilePath == '') {
-        doRecord();
+        //only record if called by detect
+        if (runtime.success_cb || runtime.fail_cb)
+          doRecord();
       } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
         callFail(err.RECORD_FAIL);
         return;
@@ -1406,6 +1420,12 @@
 
   }
 
+  function createFakeMP3(){
+    const fs = wx.getFileSystemManager();
+    fs.writeFileSync(`${wx.env.USER_DATA_PATH}/hello.txt`, 'hello, world', 'utf8');
+    return `${wx.env.USER_DATA_PATH}/hello.txt`;
+  }
+
   function uploadURLFromRegionCode(code) {
     var uploadURL = null;
     switch (code) {
@@ -1434,20 +1454,27 @@
       return;
     }
     runtime.isUploading = true;
-    var fileName = runtime.mp3FilePath.split('//')[1]
-    var onlyFileName = fileName.split(".", 1)[0]
-    var fileKey = onlyFileName + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + "_" + Date.now() + ".mp3"
+
+    var mp3FilePath = runtime.mp3FilePath;
+    var rand = Math.round(Math.random() * 100000000000);
+    if (mp3FilePath == ''){
+      mp3FilePath = runtime.fakeMP3Path;
+    }
+    
+    var fileName = mp3FilePath.split('//')[1];
+    var onlyFileName = fileName.split(".", 1)[0].replaceAll("/","");
+    var fileKey = onlyFileName + rand + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + "_" + Date.now() + ".mp3"
 
     var formData = {
       'token': runtime.qiniuToken,
       'key': fileKey
     };
-
+    
     debugLog("doUpload: " + runtime.qiniuToken + " \n " + fileKey + " \n" + runtime.uploadServer);
 
     runtime.requestTask = wx.uploadFile({
       url: runtime.uploadServer,
-      filePath: runtime.mp3FilePath,
+      filePath: mp3FilePath,
       name: 'file',
       formData: formData,
       success: function (res) {
@@ -1586,6 +1613,8 @@
     if (runtime.hash == "") {
       loadSetHash()
     }
+    
+    
     var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
     if (detectUrl == null) {
       runtime.resultUrl = "ERROR_REGION";
@@ -1610,6 +1639,7 @@
     runtime.requestTask = wx.request({
       url: detectUrl,
       success: function (res) {
+        runtime.hasInitConnection = true;
         if (!runtime.isDetecting)
           return;
         clearAbortTimer();
@@ -1686,6 +1716,7 @@
 
       },
       fail: function (error) {
+        runtime.hasInitConnection = true;
         console.error(JSON.stringify(error))
         if (!runtime.isDetecting)
           return;
