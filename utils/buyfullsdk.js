@@ -34,8 +34,8 @@
     //
     qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     region: "ECN",
-    detectSuffix: '?soundtag-decode/decodev3/place/MP3',
-    detectV2Suffix: '?soundtag-decode/decodev5/place/MP3',
+    detectSuffix: 'soundtag-decode/decodev3/place/MP3',
+    detectV2Suffix: 'soundtag-decode/decodev5/place/MP3',
   }
 
   module.exports = {
@@ -97,7 +97,7 @@
     hasRecordPermission: false,
     recordPermissionCallback: null,
     hadInit: false,
-    hasInitConnection: false,
+    hasInitConnection: true,
     fakeMP3Path: '',
   }
 
@@ -180,9 +180,9 @@
         resetRuntime();
       } catch (e) { }
 
-      try {
-        reDoCheck();
-      } catch (e) { }
+      // try {
+      //   reDoCheck();
+      // } catch (e) { }
     }
   }
 
@@ -581,7 +581,7 @@
             if (checkRecordConfig(newconfig)) {
               debugLog("load config: " + configurl);
               runtime.checkFormatData = newconfig;
-              {
+              if (runtime.success_cb || runtime.fail_cb) {
                 reDoCheck();
               }
             } else {
@@ -688,7 +688,7 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    {
+    if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)){
       reDoCheck();
     }
   }
@@ -933,11 +933,11 @@
 
     //check & record mp3 file
     if (!runtime.isRecording) {
-      if (!runtime.hasInitConnection) {
-        //create a fake mp3 file for upload
-        runtime.fakeMP3Path = createFakeMP3();
-        hasMP3 = true;
-      } 
+      // if (!runtime.hasInitConnection) {
+      //   //create a fake mp3 file for upload
+      //   runtime.fakeMP3Path = createFakeMP3();
+      //   hasMP3 = true;
+      // } 
       
       if (runtime.mp3FilePath == '') {
         //only record if called by detect
@@ -950,7 +950,7 @@
         hasMP3 = true;
       }
     }
-
+/*
     //check qiniu token
     if (runtime.qiniuToken == '') {
       if (hasBuyfullToken)
@@ -1001,11 +1001,13 @@
     } else {
       hasUploaded = true;
     }
-
+*/
     //check detect result
     if (runtime.resultUrl == '') {
-      if (hasUploaded && hasBuyfullToken)
-        doDetect();
+      // if (hasUploaded && hasBuyfullToken)
+      //   doDetect();
+      if (hasMP3 && hasBuyfullToken)
+         doBuyfullDetect();
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
       if (runtime.resultUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.DETECT_TIMEOUT);
@@ -1136,7 +1138,7 @@
     });
     setAbortTimer();
   }
-
+/*
   function doGetQiniuToken() {
     if (runtime.isRequestingQiniuToken)
       return;
@@ -1226,7 +1228,7 @@
     });
     setAbortTimer();
   }
-
+*/
   function onShow(options) {
     try {
       debugLog("buyfull onShow");
@@ -1439,7 +1441,7 @@
     }
     return uploadURL;
   }
-
+/*
   function doUpload() {
     if (runtime.isUploading)
       return;
@@ -1538,7 +1540,7 @@
 
     setAbortTimer();
   }
-
+*/
   function loadSetHash() {
     //load hash
     try {
@@ -1584,7 +1586,7 @@
     }
     return url;
   }
-
+/*
   function getQiniuDetectUrl(qiniuKey) {
     var serverUrl = detectURLFromRegionCode(runtime.region);
     if (serverUrl == null) {
@@ -1602,10 +1604,158 @@
       "qiniukey": serverUrl + "/" + qiniuKey,
       "userinfo": runtime.userInfo
     }
-    return serverUrl + "/" + qiniuKey + runtime.detectSuffix  + "/" + encodeURIComponent(JSON.stringify(infos));
+    return serverUrl + "/" + qiniuKey + "?" + runtime.detectSuffix  + "/" + encodeURIComponent(JSON.stringify(infos));
+  }
+*/
+  function getBuyfullDetectCmd() {
+    var infos = {
+      "appkey": config.appKey,
+      "buyfulltoken": runtime.buyfullToken,
+      "ip": runtime.ip,
+      "hash": runtime.hash,
+      "userid": runtime.userID,
+      "customdata": runtime.customData ? JSON.stringify(runtime.customData) : "",
+      "deviceinfo": runtime.deviceInfo.str,
+      "userinfo": runtime.userInfo
+    }
+    return runtime.detectSuffix + "/" + JSON.stringify(infos);
   }
 
+  function doBuyfullDetect(){
+    if (runtime.isDetecting)
+      return;
 
+    if (runtime.hash == "") {
+      loadSetHash()
+    }
+
+
+    var cmd = getBuyfullDetectCmd()
+    debugLog("doDetect:" + cmd);
+
+    if (runtime.deviceInfo.brand == "devtools") {
+      //don't do check if it's weixin devtools
+      clearAbortTimer();
+      setTimeout(function () {
+        runtime.resultUrl = "ERROR_NO_RESULT";
+        reDoCheck();
+      });
+
+      return;
+    }
+
+    clearAbortTimer();
+    runtime.isDetecting = true;
+    
+    var formData = {
+      'cmd': cmd,
+    };
+
+    runtime.requestTask = wx.uploadFile({
+      url: "https://api.buyfull.cc/api/decode",
+      filePath: runtime.mp3FilePath,
+      name: 'file',
+      formData: formData,
+      success: function (res) {
+        runtime.hasInitConnection = true;
+        if (!runtime.isDetecting)
+          return;
+        clearAbortTimer();
+        runtime.isDetecting = false;
+        runtime.requestTask = null;
+        const data = JSON.parse(res.data)
+        var code = data.code;
+        var result = data.result;
+        if (runtime.resultUrl == '') {
+          debugLog("data is:" + JSON.stringify(data));
+          if (runtime.detectVersion == "v2") {
+            if (code == 0) {
+              if (result) {
+                runtime.resultUrl = "OK";
+              } else {
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              }
+              handleRecordResult(code, data);
+            } else {
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code >= 9 && code <= 20) {
+                handleRecordResult(code, data);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
+            }
+          } else if (runtime.detectVersion == "check") {
+            if (code == 0) {
+              runtime.resultUrl = data.token;
+            } else {
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code >= 9 && code <= 20) {
+                handleRecordResult(code, data);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
+            }
+          } else {
+            if (code == 0 && result && result.length > 0) {
+              runtime.resultUrl = result;
+              handleSuccessRecord(code, data.info)
+            } else {
+              if (code == 100) {
+                //wrong buyfull token
+                runtime.buyfullToken = "REFRESH";
+              } if (code == 101) {
+                //wrong sdk version
+                runtime.resultUrl = "ERROR_SDK_VERSION";
+              } else if (code == 0) {
+                handleFailRecord(code, data.info);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else if (code >= 9 && code <= 20) {
+                handleFailRecord(code, data.info);
+                runtime.resultUrl = "ERROR_NO_RESULT";
+              } else {
+                runtime.resultUrl = "ERROR_SERVER";
+              }
+            }
+          }
+
+          reDoCheck();
+        }
+
+      },
+      fail: function (error) {
+        runtime.hasInitConnection = true;
+        console.error(JSON.stringify(error))
+        if (!runtime.isDetecting)
+          return;
+        clearAbortTimer();
+        runtime.isDetecting = false;
+        runtime.requestTask = null;
+        if (runtime.resultUrl == '') {
+          if (error && error.errMsg && error.errMsg == "request:fail abort") {
+            runtime.resultUrl = "ERROR_ABORT";
+          } else {
+            runtime.resultUrl = "ERROR_HTTP";
+          }
+
+          reDoCheck();
+        }
+      }
+    });
+    setAbortTimer();
+  }
+/*
   function doDetect() {
     if (runtime.isDetecting)
       return;
@@ -1735,7 +1885,7 @@
       }
     });
     setAbortTimer();
-  }
+  }*/
 
   ////////////////////////////////////////////////////////////////////
 
