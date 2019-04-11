@@ -1,5 +1,12 @@
 # buyfull_wx_sdk
-
+2019.4.11 V3版本</br>
+  请将下列URL加入request 合法域名</br>
+  https://api.buyfull.cc</br>
+  https://cloud.buyfull.cc</br>
+  请将下列URL加入uploadFile 合法域名</br>
+  https://api.buyfull.cc</br>
+  
+  
 2018.9.8 V2版本
 正式服 http://www.qieshu.net</br>
 测试服 http://sandbox.qieshu.net</br>
