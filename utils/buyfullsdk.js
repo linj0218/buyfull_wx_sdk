@@ -933,11 +933,6 @@
 
     //check & record mp3 file
     if (!runtime.isRecording) {
-      // if (!runtime.hasInitConnection) {
-      //   //create a fake mp3 file for upload
-      //   runtime.fakeMP3Path = createFakeMP3();
-      //   hasMP3 = true;
-      // } 
       
       if (runtime.mp3FilePath == '') {
         //only record if called by detect
@@ -950,58 +945,6 @@
         hasMP3 = true;
       }
     }
-/*
-    //check qiniu token
-    if (runtime.qiniuToken == '') {
-      if (hasBuyfullToken)
-        doGetQiniuToken();
-    } else if (runtime.qiniuToken.startsWith("ERROR_")) {
-      if (runtime.qiniuToken == 'ERROR_ABORT') {
-        debugLog("GET_QINIU_TOKEN_TIMEOUT");
-        runtime.qiniuToken = "";
-        reDoCheck();
-        // safe_call(fail_cb, err.GET_QINIU_TOKEN_TIMEOUT);
-      } else {
-        if (runtime.qiniuToken == 'ERROR_SERVER') {
-          callFail(err.GET_QINIU_TOKEN_ERROR);
-        } else if (runtime.qiniuToken == 'ERROR_HTTP') {
-          callFail(err.NETWORK_ERROR);
-        } else if (runtime.qiniuToken == 'ERROR_INVALID_TOKENURL') {
-          callFail(err.INVALID_QINIU_TOKENURL);
-        }
-      }
-      return;
-    } else {
-      hasQiniuToken = true;
-    }
-
-    //check upload to qiniu
-    if (runtime.qiniuUrl == '') {
-      if (hasQiniuToken && hasMP3)
-        doUpload();
-    } else if (runtime.qiniuUrl.startsWith("ERROR_")) {
-      if (runtime.qiniuUrl == 'ERROR_ABORT') {
-        // safe_call(fail_cb, err.UPLOAD_TIMEOUT);
-        debugLog("UPLOAD_TIMEOUT");
-        // runtime.qiniuToken = "";
-        runtime.qiniuUrl == "";
-        reDoCheck();
-      } else {
-        if (runtime.qiniuUrl == 'ERROR_UPLOAD_FAIL') {
-          callFail(err.UPLOAD_FAIL);
-        } else if (runtime.qiniuUrl == 'ERROR_JSON') {
-          callFail(err.JSON_PARSE_ERROR);
-        } else if (runtime.qiniuUrl == 'ERROR_HTTP') {
-          callFail(err.NETWORK_ERROR);
-        } else if (runtime.qiniuUrl == 'ERROR_REGION') {
-          callFail(err.INVALID_REGION);
-        }
-      }
-      return;
-    } else {
-      hasUploaded = true;
-    }
-*/
     //check detect result
     if (runtime.resultUrl == '') {
       // if (hasUploaded && hasBuyfullToken)
@@ -1138,97 +1081,7 @@
     });
     setAbortTimer();
   }
-/*
-  function doGetQiniuToken() {
-    if (runtime.isRequestingQiniuToken)
-      return;
 
-    debugLog("doGetQiniuToken:" + config.qiniuTokenUrl);
-    clearAbortTimer();
-    runtime.isRequestingQiniuToken = true;
-
-    var data = {
-      "nocache": Math.random() * 10000000000,
-      "appkey": config.appKey,
-      "token": runtime.buyfullToken,
-      "region": runtime.region,
-    };
-
-    if (runtime.hash && runtime.hash != "")
-      data.hash = runtime.hash;
-
-    // var fileName = runtime.mp3FilePath.split('//')[1];
-    // data.urlkey = Date.now() + "_" + fileName ;
-    data.urlkey = Date.now() + "_" + Math.random();
-    if (runtime.hash && runtime.hash != "")
-      data.urlkey += "_" + runtime.hash;
-
-    runtime.requestTask = wx.request({
-      url: config.qiniuTokenUrl,
-      data: data,
-      success: function (res) {
-        if (!runtime.isRequestingQiniuToken)
-          return;
-        clearAbortTimer();
-        runtime.isRequestingQiniuToken = false;
-        runtime.requestTask = null;
-        var code = res.data.code;
-        var qiniuToken = res.data.token;
-        var region = res.data.region;
-        var buyfullToken = res.data.buyfulltoken;
-        runtime.ip = res.data.ip;
-        if (runtime.qiniuToken == '') {
-
-          if (qiniuToken && qiniuToken.length > 0) {
-            runtime.qiniuToken = qiniuToken;
-          } else {
-            runtime.qiniuToken = "ERROR_SERVER";
-          }
-          if (code && (code == 401 || code == 404)) {
-            //token expired, request new one
-            if (buyfullToken && buyfullToken.length > 0) {
-              runtime.buyfullToken = buyfullToken;
-              debugLog("new buyfulltoken is:" + buyfullToken);
-            }
-            else {
-              runtime.buyfullToken = "REFRESH";
-            }
-
-            if (code == 404)
-              runtime.qiniuToken = "";
-          }
-          if (region && region.length > 0 && checkRegionCode(region)) {
-            runtime.region = region;
-          }
-          if (code == 302 && buyfullToken && buyfullToken.length > 0) {
-            runtime.buyfullToken = buyfullToken;
-            debugLog("new buyfulltoken is:" + buyfullToken);
-          }
-          reDoCheck();
-        }
-
-      },
-      fail: function (error) {
-        console.error(JSON.stringify(error))
-        if (!runtime.isRequestingQiniuToken)
-          return;
-        clearAbortTimer();
-        runtime.isRequestingQiniuToken = false;
-        runtime.requestTask = null;
-        if (runtime.qiniuToken == '') {
-          if (error && error.errMsg && error.errMsg == "request:fail abort") {
-            runtime.qiniuToken = "ERROR_ABORT";
-          } else {
-            runtime.qiniuToken = "ERROR_HTTP";
-          }
-
-          reDoCheck();
-        }
-      }
-    });
-    setAbortTimer();
-  }
-*/
   function onShow(options) {
     try {
       debugLog("buyfull onShow");
@@ -1422,125 +1275,6 @@
 
   }
 
-  function createFakeMP3(){
-    const fs = wx.getFileSystemManager();
-    fs.writeFileSync(`${wx.env.USER_DATA_PATH}/hello.txt`, 'hello, world', 'utf8');
-    return `${wx.env.USER_DATA_PATH}/hello.txt`;
-  }
-
-  function uploadURLFromRegionCode(code) {
-    var uploadURL = null;
-    switch (code) {
-      case 'ECN': uploadURL = 'https://upload.qiniup.com'; break;
-      case 'NCN': uploadURL = 'https://upload-z1.qiniup.com'; break;
-      case 'SCN': uploadURL = 'https://upload-z2.qiniup.com'; break;
-      // case 'NA0': uploadURL = 'https://upload-na0.qiniup.com'; break;
-      // case 'AS0': uploadURL = 'https://upload-as0.qiniup.com'; break;
-      default:
-
-    }
-    return uploadURL;
-  }
-/*
-  function doUpload() {
-    if (runtime.isUploading)
-      return;
-
-    clearAbortTimer();
-
-    runtime.uploadServer = uploadURLFromRegionCode(runtime.region);
-    if (runtime.uploadServer == null) {
-      runtime.isUploading = false;
-      runtime.qiniuUrl = "ERROR_REGION";
-      reDoCheck();
-      return;
-    }
-    runtime.isUploading = true;
-
-    var mp3FilePath = runtime.mp3FilePath;
-    var rand = Math.round(Math.random() * 100000000000);
-    if (mp3FilePath == ''){
-      mp3FilePath = runtime.fakeMP3Path;
-    }
-    
-    var fileName = mp3FilePath.split('//')[1];
-    var onlyFileName = fileName.split(".", 1)[0].replaceAll("/","");
-    var fileKey = onlyFileName + rand + "_" + runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod + "_" + Date.now() + ".mp3"
-
-    var formData = {
-      'token': runtime.qiniuToken,
-      'key': fileKey
-    };
-    
-    debugLog("doUpload: " + runtime.qiniuToken + " \n " + fileKey + " \n" + runtime.uploadServer);
-
-    runtime.requestTask = wx.uploadFile({
-      url: runtime.uploadServer,
-      filePath: mp3FilePath,
-      name: 'file',
-      formData: formData,
-      success: function (res) {
-        if (!runtime.isUploading)
-          return;
-        clearAbortTimer();
-        runtime.requestTask = null;
-        runtime.isUploading = false;
-        var dataString = res.data
-        try {
-          var dataObject = JSON.parse(dataString);
-
-          if (dataObject.key) {
-            if (runtime.qiniuUrl == '') {
-              runtime.qiniuUrl = dataObject.key;
-              reDoCheck();
-            }
-            return;
-          } else if (dataObject.error && dataObject.error == "expired token") {
-            if (runtime.qiniuUrl == '') {
-              //request new upload token
-              runtime.qiniuToken = "";
-              reDoCheck();
-            }
-          } else {
-            if (runtime.qiniuUrl == '') {
-              runtime.qiniuUrl = "ERROR_UPLOAD_FAIL";
-              reDoCheck();
-            }
-          }
-
-        } catch (e) {
-          if (runtime.qiniuUrl == '') {
-            runtime.qiniuUrl = "ERROR_JSON";
-            reDoCheck();
-          }
-        }
-      },
-      fail: function (error) {
-        console.error(JSON.stringify(error))
-        if (!runtime.isUploading)
-          return;
-        clearAbortTimer();
-        runtime.requestTask = null;
-        runtime.isUploading = false;
-        if (runtime.qiniuUrl == '') {
-          if (error && error.errMsg && error.errMsg == "request:fail abort") {
-            runtime.qiniuUrl = "ERROR_ABORT";
-          } else {
-            runtime.qiniuUrl = "ERROR_HTTP";
-          }
-          reDoCheck();
-        }
-      }
-    });
-
-    runtime.requestTask.onProgressUpdate((res) => {
-      setAbortTimer();
-      debugLog('uploading: ' + res.progress)
-    });
-
-    setAbortTimer();
-  }
-*/
   function loadSetHash() {
     //load hash
     try {
@@ -1573,26 +1307,7 @@
     return hash;
   }
 
-  function detectURLFromRegionCode(code) {
-    var url = null;
-    switch (code) {
-      case 'ECN': url = 'https://cdn.buyfull.cc'; break;
-      case 'NCN': url = 'https://cdnnorth.buyfull.cc'; break;
-      case 'SCN': url = 'https://cdnnan.buyfull.cc'; break;
-      //case 'NA0': url = 'https://upload-na0.qiniup.com'; break;
-      //case 'AS0': url = 'https://upload-as0.qiniup.com'; break;
-      default:
-
-    }
-    return url;
-  }
-/*
-  function getQiniuDetectUrl(qiniuKey) {
-    var serverUrl = detectURLFromRegionCode(runtime.region);
-    if (serverUrl == null) {
-      return null;
-    }
-
+  function getBuyfullDetectCmd(info) {
     var infos = {
       "appkey": config.appKey,
       "buyfulltoken": runtime.buyfullToken,
@@ -1601,21 +1316,7 @@
       "userid": runtime.userID,
       "customdata": runtime.customData ? JSON.stringify(runtime.customData) : "",
       "deviceinfo": runtime.deviceInfo.str,
-      "qiniukey": serverUrl + "/" + qiniuKey,
-      "userinfo": runtime.userInfo
-    }
-    return serverUrl + "/" + qiniuKey + "?" + runtime.detectSuffix  + "/" + encodeURIComponent(JSON.stringify(infos));
-  }
-*/
-  function getBuyfullDetectCmd() {
-    var infos = {
-      "appkey": config.appKey,
-      "buyfulltoken": runtime.buyfullToken,
-      "ip": runtime.ip,
-      "hash": runtime.hash,
-      "userid": runtime.userID,
-      "customdata": runtime.customData ? JSON.stringify(runtime.customData) : "",
-      "deviceinfo": runtime.deviceInfo.str,
+      "info": info,
       "userinfo": runtime.userInfo
     }
     return runtime.detectSuffix + "/" + JSON.stringify(infos);
@@ -1629,8 +1330,9 @@
       loadSetHash()
     }
 
+    var info = runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod;
 
-    var cmd = getBuyfullDetectCmd()
+    var cmd = getBuyfullDetectCmd(info)
     debugLog("doDetect:" + cmd);
 
     if (runtime.deviceInfo.brand == "devtools") {
@@ -1755,137 +1457,6 @@
     });
     setAbortTimer();
   }
-/*
-  function doDetect() {
-    if (runtime.isDetecting)
-      return;
-
-    if (runtime.hash == "") {
-      loadSetHash()
-    }
-    
-    
-    var detectUrl = getQiniuDetectUrl(runtime.qiniuUrl)
-    if (detectUrl == null) {
-      runtime.resultUrl = "ERROR_REGION";
-      reDoCheck();
-      return;
-    }
-    debugLog("doDetect:" + detectUrl);
-
-    if (runtime.deviceInfo.brand == "devtools") {
-      //don't do check if it's weixin devtools
-      clearAbortTimer();
-      setTimeout(function () {
-        runtime.resultUrl = "ERROR_NO_RESULT";
-        reDoCheck();
-      });
-
-      return;
-    }
-
-    clearAbortTimer();
-    runtime.isDetecting = true;
-    runtime.requestTask = wx.request({
-      url: detectUrl,
-      success: function (res) {
-        runtime.hasInitConnection = true;
-        if (!runtime.isDetecting)
-          return;
-        clearAbortTimer();
-        runtime.isDetecting = false;
-        runtime.requestTask = null;
-        var code = res.data.code;
-        var result = res.data.result;
-        if (runtime.resultUrl == '') {
-          debugLog("data is:" + JSON.stringify(res.data));
-          if (runtime.detectVersion == "v2") {
-            if (code == 0) {
-              if (result) {
-                runtime.resultUrl = "OK";
-              } else {
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              }
-              handleRecordResult(code, res.data);
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code >= 9 && code <= 20) {
-                handleRecordResult(code, res.data);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          } else if (runtime.detectVersion == "check") {
-            if (code == 0) {
-              runtime.resultUrl = res.data.token;
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code >= 9 && code <= 20) {
-                handleRecordResult(code, res.data);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          } else {
-            if (code == 0 && result && result.length > 0) {
-              runtime.resultUrl = result;
-              handleSuccessRecord(code, res.data.info)
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code == 0) {
-                handleFailRecord(code, res.data.info);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else if (code >= 9 && code <= 20) {
-                handleFailRecord(code, res.data.info);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          }
-
-          reDoCheck();
-        }
-
-      },
-      fail: function (error) {
-        runtime.hasInitConnection = true;
-        console.error(JSON.stringify(error))
-        if (!runtime.isDetecting)
-          return;
-        clearAbortTimer();
-        runtime.isDetecting = false;
-        runtime.requestTask = null;
-        if (runtime.resultUrl == '') {
-          if (error && error.errMsg && error.errMsg == "request:fail abort") {
-            runtime.resultUrl = "ERROR_ABORT";
-          } else {
-            runtime.resultUrl = "ERROR_HTTP";
-          }
-
-          reDoCheck();
-        }
-      }
-    });
-    setAbortTimer();
-  }*/
 
   ////////////////////////////////////////////////////////////////////
 
