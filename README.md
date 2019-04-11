@@ -34,6 +34,7 @@ V1</br>
 
   请将下列URL加入request 合法域名</br>
   https://api.buyfull.cc</br>
+  https://cloud.buyfull.cc</br>
   https://cdn.buyfull.cc</br>
   https://cdnnorth.buyfull.cc</br>
   https://cdnnan.buyfull.cc</br>
