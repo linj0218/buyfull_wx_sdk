@@ -32,7 +32,6 @@
     abortTimeout: 2000,//单个API请求的超时
     debugLog: false,//是否打印debuglog
     //
-    qiniuTokenUrl: 'https://api.buyfull.cc/api/qiniutoken',
     region: "ECN",
     detectSuffix: 'soundtag-decode/decodev3/place/MP3',
     detectV2Suffix: 'soundtag-decode/decodev5/place/MP3',
@@ -180,9 +179,9 @@
         resetRuntime();
       } catch (e) { }
 
-      // try {
-      //   reDoCheck();
-      // } catch (e) { }
+      try {
+        preHeat();
+      } catch (e) { }
     }
   }
 
@@ -1020,6 +1019,21 @@
       }
 
     }, config.abortTimeout);
+  }
+
+  function preHeat() {
+    clearAbortTimer();
+    runtime.requestTask = wx.request({
+      url: "https://api.buyfull.cc/api/ip",
+      success: function (res) {
+        clearAbortTimer();
+        runtime.ip = res.data;
+      },
+      fail: function (error) {
+        clearAbortTimer();
+      }
+    });
+    setAbortTimer();
   }
 
   function doGetBuyfullToken(refreshToken) {
