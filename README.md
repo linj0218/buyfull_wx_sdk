@@ -1,5 +1,8 @@
 # buyfull_wx_sdk
 2019.4.11 V3版本</br>
+正式服 https://www.euphonyqr.com</br>
+测试服 https://sandbox.euphonyqr.com</br>
+
   请将下列URL加入request 合法域名</br>
   https://api.buyfull.cc</br>
   https://cloud.buyfull.cc</br>
