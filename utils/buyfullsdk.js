@@ -468,7 +468,7 @@
             var system = runtime.deviceInfo.system.split(" ");
             if (system.length >= 2) {
               var androidversion = system[1].split(".");
-              if (androidversion.length >= 2 && parseInt(androidversion[0]) >= 7) {
+              if (androidversion.length >= 1 && parseInt(androidversion[0]) >= 7) {
                 //it's greater than 7.0
                 android7 = true;
               }
@@ -476,7 +476,7 @@
 
             var wxversion = runtime.deviceInfo.version.split(".");
             //check if weixin is greater than 6.6.7
-            if (wxversion.length >= 2 && parseInt(wxversion[0]) > 6){
+            if (wxversion.length >= 2 && parseInt(wxversion[0]) > 6) {
               wx667 = true;
             }
             else if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6) {
@@ -569,7 +569,7 @@
       var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ", "_"));
       var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase().replaceAll(" ", "_"));
       var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase().replaceAll(" ", "_"));
-      var configurl = "https://cloud.buyfull.cc/android_config/" + brand + "_" + model + "_" + system + ".json";
+      var configurl = "https://cloud.euphonyqr.com/android_config/" + brand + "_" + model + "_" + system + ".json";
       runtime.requestTask = wx.request({
         url: configurl,
         success: function (res) {
@@ -687,7 +687,7 @@
     }
     checkRecordConfig(runtime.checkFormatData);
 
-    if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)){
+    if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
       reDoCheck();
     }
   }
@@ -932,7 +932,7 @@
 
     //check & record mp3 file
     if (!runtime.isRecording) {
-      
+
       if (runtime.mp3FilePath == '') {
         //only record if called by detect
         if (runtime.success_cb || runtime.fail_cb)
@@ -949,7 +949,7 @@
       // if (hasUploaded && hasBuyfullToken)
       //   doDetect();
       if (hasMP3 && hasBuyfullToken)
-         doBuyfullDetect();
+        doBuyfullDetect();
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
       if (runtime.resultUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.DETECT_TIMEOUT);
@@ -1024,7 +1024,7 @@
   function preHeat() {
     clearAbortTimer();
     runtime.requestTask = wx.request({
-      url: "https://api.buyfull.cc/api/ip",
+      url: "https://api.euphonyqr.com/api/ip",
       success: function (res) {
         clearAbortTimer();
         runtime.ip = res.data;
@@ -1336,7 +1336,7 @@
     return runtime.detectSuffix + "/" + JSON.stringify(infos);
   }
 
-  function doBuyfullDetect(){
+  function doBuyfullDetect() {
     if (runtime.isDetecting)
       return;
 
@@ -1362,13 +1362,13 @@
 
     clearAbortTimer();
     runtime.isDetecting = true;
-    
+
     var formData = {
       'cmd': cmd,
     };
 
     runtime.requestTask = wx.uploadFile({
-      url: "https://api.buyfull.cc/api/decode",
+      url: "https://api.euphonyqr.com/api/decode",
       filePath: runtime.mp3FilePath,
       name: 'file',
       formData: formData,
