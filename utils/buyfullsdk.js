@@ -772,13 +772,13 @@
 
     if (retCode == 10) {
       //record is empty
-      if (!runtime.deviceInfo.wx667) {
+      if (!runtime.deviceInfo.wx667 && runtime.deviceInfo.platform == "android") {
         //nothing we can do if wx is below 6.6.7
         showWX667Hint();
       } else {
         runtime.checkFormatData[0].power = -120;
         //if only one option left, show not support
-        if (runtime.checkFormatData.length == 1) {
+        if (runtime.checkFormatData.length == 1 && runtime.deviceInfo.platform == "android") {
           showNotSupportHint();
         }
       }
@@ -1384,93 +1384,92 @@
         clearAbortTimer();
         runtime.isDetecting = false;
         runtime.requestTask = null;
-        if (res.statusCode != 200 && runtime.resultUrl == ''){
+        if (res.statusCode != 200 && runtime.resultUrl == '') {
           runtime.resultUrl = "ERROR_SERVER";
           reDoCheck();
           return;
         }
-        try{
+
+        try {
           const data = JSON.parse(res.data)
-          if (!data || !data.code || !data.result) {
+          if (!data) {
             runtime.resultUrl = "ERROR_SERVER";
             reDoCheck();
             return;
           }
-        }catch(e){
+          var code = data.code;
+          var result = data.result;
+          if (runtime.resultUrl == '') {
+            debugLog("data is:" + JSON.stringify(data));
+            if (runtime.detectVersion == "v2") {
+              if (code == 0) {
+                if (result) {
+                  runtime.resultUrl = "OK";
+                } else {
+                  runtime.resultUrl = "ERROR_NO_RESULT";
+                }
+                handleRecordResult(code, data);
+              } else {
+                if (code == 100) {
+                  //wrong buyfull token
+                  runtime.buyfullToken = "REFRESH";
+                } if (code == 101) {
+                  //wrong sdk version
+                  runtime.resultUrl = "ERROR_SDK_VERSION";
+                } else if (code >= 9 && code <= 20) {
+                  handleRecordResult(code, data);
+                  runtime.resultUrl = "ERROR_NO_RESULT";
+                } else {
+                  runtime.resultUrl = "ERROR_SERVER";
+                }
+              }
+            } else if (runtime.detectVersion == "check") {
+              if (code == 0) {
+                runtime.resultUrl = data.token;
+              } else {
+                if (code == 100) {
+                  //wrong buyfull token
+                  runtime.buyfullToken = "REFRESH";
+                } if (code == 101) {
+                  //wrong sdk version
+                  runtime.resultUrl = "ERROR_SDK_VERSION";
+                } else if (code >= 9 && code <= 20) {
+                  handleRecordResult(code, data);
+                  runtime.resultUrl = "ERROR_NO_RESULT";
+                } else {
+                  runtime.resultUrl = "ERROR_SERVER";
+                }
+              }
+            } else {
+              if (code == 0 && result && result.length > 0) {
+                runtime.resultUrl = result;
+                handleSuccessRecord(code, data.info)
+              } else {
+                if (code == 100) {
+                  //wrong buyfull token
+                  runtime.buyfullToken = "REFRESH";
+                } if (code == 101) {
+                  //wrong sdk version
+                  runtime.resultUrl = "ERROR_SDK_VERSION";
+                } else if (code == 0) {
+                  handleFailRecord(code, data.info);
+                  runtime.resultUrl = "ERROR_NO_RESULT";
+                } else if (code >= 9 && code <= 20) {
+                  handleFailRecord(code, data.info);
+                  runtime.resultUrl = "ERROR_NO_RESULT";
+                } else {
+                  runtime.resultUrl = "ERROR_SERVER";
+                }
+              }
+            }
+
+            reDoCheck();
+          }
+        } catch (e) {
           runtime.resultUrl = "ERROR_SERVER";
           reDoCheck();
           return;
         }
-
-        var code = data.code;
-        var result = data.result;
-        if (runtime.resultUrl == '') {
-          debugLog("data is:" + JSON.stringify(data));
-          if (runtime.detectVersion == "v2") {
-            if (code == 0) {
-              if (result) {
-                runtime.resultUrl = "OK";
-              } else {
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              }
-              handleRecordResult(code, data);
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code >= 9 && code <= 20) {
-                handleRecordResult(code, data);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          } else if (runtime.detectVersion == "check") {
-            if (code == 0) {
-              runtime.resultUrl = data.token;
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code >= 9 && code <= 20) {
-                handleRecordResult(code, data);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          } else {
-            if (code == 0 && result && result.length > 0) {
-              runtime.resultUrl = result;
-              handleSuccessRecord(code, data.info)
-            } else {
-              if (code == 100) {
-                //wrong buyfull token
-                runtime.buyfullToken = "REFRESH";
-              } if (code == 101) {
-                //wrong sdk version
-                runtime.resultUrl = "ERROR_SDK_VERSION";
-              } else if (code == 0) {
-                handleFailRecord(code, data.info);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else if (code >= 9 && code <= 20) {
-                handleFailRecord(code, data.info);
-                runtime.resultUrl = "ERROR_NO_RESULT";
-              } else {
-                runtime.resultUrl = "ERROR_SERVER";
-              }
-            }
-          }
-
-          reDoCheck();
-        }
-
       },
       fail: function (error) {
         runtime.hasInitConnection = true;
