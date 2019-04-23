@@ -1274,6 +1274,7 @@
       wx.getRecorderManager().stop();
       runtime.lastRecordEvent = "STOP";
     } else if (runtime.lastRecordEvent == "ONERROR") {
+      runtime.lastRecordEvent = "";
       if ((Date.now() - runtime.lastRecordTime) > 2000) {
         //onerror take too much time, return record error
         runtime.mp3FilePath = "ERROR_RECORD";
