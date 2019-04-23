@@ -1389,7 +1389,19 @@
           reDoCheck();
           return;
         }
-        const data = JSON.parse(res.data)
+        try{
+          const data = JSON.parse(res.data)
+          if (!data || !data.code || !data.result) {
+            runtime.resultUrl = "ERROR_SERVER";
+            reDoCheck();
+            return;
+          }
+        }catch(e){
+          runtime.resultUrl = "ERROR_SERVER";
+          reDoCheck();
+          return;
+        }
+
         var code = data.code;
         var result = data.result;
         if (runtime.resultUrl == '') {
