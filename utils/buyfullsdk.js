@@ -454,8 +454,8 @@
         runtime.deviceInfo.str = JSON.stringify(res);
         if (runtime.deviceInfo.platform == "ios") {
           runtime.checkFormatData = [
-            { priority: 1, src: "auto", duration: 1200 },
-            { priority: 0, src: "buildInMic", duration: 1200 },
+            { priority: 1, src: "buildInMic", duration: 1200 },
+            { priority: 0, src: "auto", duration: 1200 },
 
           ];
           checkRecordConfig(runtime.checkFormatData);
