@@ -1061,6 +1061,11 @@
         clearAbortTimer();
         runtime.isRequestingBuyfullToken = false;
         runtime.requestTask = null;
+        if (res.statusCode != 200 && runtime.buyfullToken == '') {
+          runtime.buyfullToken = "ERROR_SERVER";
+          reDoCheck();
+          return;
+        }
         var code = res.data.code;
         var buyfullToken = res.data.token;
         if (runtime.buyfullToken == '') {
@@ -1379,6 +1384,11 @@
         clearAbortTimer();
         runtime.isDetecting = false;
         runtime.requestTask = null;
+        if (res.statusCode != 200 && runtime.resultUrl == ''){
+          runtime.resultUrl = "ERROR_SERVER";
+          reDoCheck();
+          return;
+        }
         const data = JSON.parse(res.data)
         var code = data.code;
         var result = data.result;
