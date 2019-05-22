@@ -30,6 +30,7 @@
     buyfullTokenUrl: '',
     detectTimeout: 6000,//总的超时
     abortTimeout: 2000,//单个API请求的超时
+    mp3ValidTimeout: 1500,//mp3录音有效时间
     debugLog: false,//是否打印debuglog
     //
     region: "ECN",
@@ -48,7 +49,6 @@
 
   var runtime = {
     lastDetectTime: 0,
-    lastRecordTime: 0,
     isRequestingBuyfullToken: false,
     isRequestingQiniuToken: false,
     isRecording: false,
@@ -65,10 +65,11 @@
     success_cb: null,
     fail_cb: null,
     record_options: {
-      duration: 1500,
+      duration: 600000,
       sampleRate: 44100,
       numberOfChannels: 1,
       encodeBitRate: 320000,
+      frameSize: 22,
       format: 'mp3',
     },
     hasRecordInited: false,
@@ -84,8 +85,6 @@
     noRecordPermission: false,
     wxVersionTooLow: false,
     suspended: false,
-    lastRecordEvent: "",
-    lastRecordError: null,
     checkFormatData: null,
     hasSaveRecordConfig: false,
     userID: "",
@@ -97,17 +96,28 @@
     recordPermissionCallback: null,
     hadInit: false,
     hasInitConnection: true,
-    fakeMP3Path: '',
+    mp3Buffer: new Uint8Array(50 * 1024),
+    recorderStatus: {
+      lastRecordTime: 0,
+      lastRecordCmd: "",
+      lastRecordEvent: "",
+      lastRecordSource: "",
+      lastRecordError: null,
+      lastFrameTimeStamp: 0,
+      lastValidFrameTimeStamp: 0,
+      lastFrameTimePeriod: 0,
+      lastMP3Head: null,
+      lastMP3Frames: [],
+    }
   }
 
   function resetRuntime() {
     runtime.success_cb = null;
     runtime.fail_cb = null;
     runtime.lastDetectTime = Date.now();
-    runtime.lastRecordTime = Date.now();
     runtime.isRequestingBuyfullToken = false;
     runtime.isRequestingQiniuToken = false;
-    runtime.isRecording = false;
+
     runtime.isUploading = false;
     runtime.isDetecting = false;
     if (runtime.requestTask != null) {
@@ -195,6 +205,32 @@
     return this.replace(regExp, RepText);
   }
 
+  function compareVersion(v1, v2) {
+    v1 = v1.split('.')
+    v2 = v2.split('.')
+    const len = Math.max(v1.length, v2.length)
+
+    while (v1.length < len) {
+      v1.push('0')
+    }
+    while (v2.length < len) {
+      v2.push('0')
+    }
+
+    for (let i = 0; i < len; i++) {
+      const num1 = parseInt(v1[i])
+      const num2 = parseInt(v2[i])
+
+      if (num1 > num2) {
+        return 1
+      } else if (num1 < num2) {
+        return -1
+      }
+    }
+
+    return 0
+  }
+
   function setRecordPermissionCallback(callback) {
     if (!runtime.hasRecordPermission) {
       runtime.recordPermissionCallback = callback;
@@ -213,6 +249,7 @@
           runtime.hasRecordPermission = true;
           runtime.noRecordPermission = false;
           runtime.recordPermissionCallback = null;
+          startRecord({ isAutoStart: true });
           if (callback)
             callback(true);
         }
@@ -384,10 +421,14 @@
       resetRuntime();
     }
     if (runtime.success_cb || runtime.fail_cb) {
-      safe_call(fail, err.DUPLICATE_DETECT);
+      if (runtime.success_cb != success || runtime.fail_cb != fail)
+        safe_call(fail, err.DUPLICATE_DETECT);
       return;
     }
     resetRuntime();
+    if (!runtime.isRecording) {
+      startRecord({});
+    }
     checkOptions(options);//for set param;
     runtime.success_cb = success;
     runtime.fail_cb = fail;
@@ -468,23 +509,16 @@
             var system = runtime.deviceInfo.system.split(" ");
             if (system.length >= 2) {
               var androidversion = system[1].split(".");
-              if (androidversion.length >= 1 && parseInt(androidversion[0]) >= 7) {
+              if (androidversion.length >= 1 && parseInt(androidversion[0]) >= 2 && parseInt(androidversion[0]) <= 6) {
+
+              } else {
                 //it's greater than 7.0
                 android7 = true;
               }
             }
-
-            var wxversion = runtime.deviceInfo.version.split(".");
-            //check if weixin is greater than 6.6.7
-            if (wxversion.length >= 2 && parseInt(wxversion[0]) > 6) {
+            const version = runtime.deviceInfo.version;
+            if (compareVersion(version, '6.6.7') >= 0) {
               wx667 = true;
-            }
-            else if (wxversion.length >= 2 && parseInt(wxversion[0]) >= 6 && parseInt(wxversion[1]) >= 6) {
-              if (wxversion.length >= 2 && parseInt(wxversion[1]) > 6) {
-                wx667 = true;
-              } else if (wxversion.length >= 3 && parseInt(wxversion[2]) >= 7) {
-                wx667 = true;
-              }
             }
 
             runtime.deviceInfo.android7 = android7;
@@ -626,6 +660,7 @@
           config[index].startTime = 0;
           config[index].recordPeriod = 0;
         }
+        startRecord({ isAutoStart: true });
         return true;
       }
     } catch (e) {
@@ -686,7 +721,6 @@
       ];
     }
     checkRecordConfig(runtime.checkFormatData);
-
     if (!runtime.noRecordPermission && (runtime.success_cb || runtime.fail_cb)) {
       reDoCheck();
     }
@@ -931,25 +965,30 @@
     }
 
     //check & record mp3 file
-    if (!runtime.isRecording) {
-
-      if (runtime.mp3FilePath == '') {
-        //only record if called by detect
-        if (runtime.success_cb || runtime.fail_cb)
-          doRecord();
-      } else if (runtime.mp3FilePath.startsWith("ERROR_")) {
+    if (((Date.now() - runtime.recorderStatus.lastValidFrameTimeStamp) <= config.mp3ValidTimeout) && (getMP3Stream(true) === true)) {
+      hasMP3 = true;
+    } else {
+      //wait record ready till mp3 timeout
+      if ((Date.now() - runtime.lastDetectTime) >= config.mp3ValidTimeout) {
         callFail(err.RECORD_FAIL);
         return;
-      } else {
-        hasMP3 = true;
       }
     }
     //check detect result
     if (runtime.resultUrl == '') {
-      // if (hasUploaded && hasBuyfullToken)
-      //   doDetect();
-      if (hasMP3 && hasBuyfullToken)
+      if (runtime.deviceInfo.brand == "devtools") {
+        //don't do check if it's weixin devtools
+        clearAbortTimer();
+        setTimeout(function () {
+          runtime.resultUrl = "ERROR_NO_RESULT";
+          reDoCheck();
+        });
+        return;
+      }
+      if (hasMP3 && hasBuyfullToken){
         doBuyfullDetect();
+      }
+
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
       if (runtime.resultUrl == 'ERROR_ABORT') {
         // safe_call(fail_cb, err.DETECT_TIMEOUT);
@@ -1028,6 +1067,7 @@
       success: function (res) {
         clearAbortTimer();
         runtime.ip = res.data;
+        doGetBuyfullToken(false);
       },
       fail: function (error) {
         clearAbortTimer();
@@ -1106,12 +1146,8 @@
       debugLog("buyfull onShow");
       if (runtime.suspended) {
         runtime.suspended = false;
-        if (runtime.isRecording) {
-          debugLog("restart record");
-          runtime.isRecording = false;
-          runtime.mp3FilePath = "";
-          retryRecord();
-        }
+        startRecord({ isSuspend: true });
+
         if (runtime.success_cb || runtime.fail_cb) {
           debugLog("restart detect");
           reDoCheck();
@@ -1120,7 +1156,7 @@
     } catch (e) {
       debugLog("error in buyfull onShow: " + JSON.stringify(e));
     }
-    if (this.oldOnShow) {
+    if (this && this.oldOnShow) {
       try {
         this.oldOnShow(options);
       } catch (e) {
@@ -1138,7 +1174,7 @@
     } catch (e) {
       debugLog("error in buyfull onHide: " + JSON.stringify(e));
     }
-    if (this.oldOnHide) {
+    if (this && this.oldOnHide) {
       try {
         this.oldOnHide(options);
       } catch (e) {
@@ -1148,15 +1184,20 @@
   }
 
   function registerAppEventHandler() {
-    var oldOnShow = getApp().onShow;
-    var oldOnHide = getApp().onHide;
+    const version = wx.getSystemInfoSync().SDKVersion
+    if (compareVersion(version, '2.3.0') >= 0) {
+      //for 2.3.0, we use onInterrupt
+    } else {
+      var oldOnShow = getApp().onShow;
+      var oldOnHide = getApp().onHide;
 
-    getApp().onShow = onShow.bind({
-      oldOnShow: oldOnShow
-    })
-    getApp().onHide = onHide.bind({
-      oldOnHide: oldOnHide
-    });
+      getApp().onShow = onShow.bind({
+        oldOnShow: oldOnShow
+      })
+      getApp().onHide = onHide.bind({
+        oldOnHide: oldOnHide
+      });
+    }
   }
 
 
@@ -1164,16 +1205,45 @@
     //don't use it anymore
   }
 
-  function retryRecord() {
-    if (runtime.suspended)
+  function startRecord(option) {
+    if (runtime.suspended || !runtime.hasRecordPermission)
       return;
+    if (option) {
+      if (option.isOnError) {
+
+      }
+      if (option.isSuspend) {
+        _doStop();
+        return;
+      }
+      if (option.isAutoStart) {
+
+      }
+      if (option.isOnPause) {
+        _doStop();
+        return;
+      }
+      if (option.isOnStop) {
+        if (runtime.deviceInfo.platform == "ios"){
+          setTimeout(function () {
+            doRecord(option);
+          }, 3000);//for prevent video bug
+          return;
+        }
+      }
+      if (option.isOnFrame) {
+        _doStop();
+        return;
+      }
+    }
+
     setTimeout(function () {
-      doRecord(true);
+      doRecord(option);
     }, 1);
   }
 
-  function doRecord(isRetry) {
-    if (runtime.isRecording || runtime.suspended)
+  function doRecord(option) {
+    if (runtime.isRecording || runtime.suspended || !runtime.checkFormatData)
       return;
 
     debugLog("doRecord");
@@ -1184,113 +1254,348 @@
 
       recordManager.onStart(() => {
         debugLog('recorder on start');
-        runtime.lastRecordEvent = "ONSTART";
-        runtime.lastRecordError = null
-        runtime.lastRecordTime = Date.now();
+        _clearRecordAbortTimer();
+        runtime.recorderStatus.lastRecordEvent = "ONSTART";
+        runtime.recorderStatus.lastRecordError = null
         runtime.isRecording = true;
+        purgeMP3Stream();
       });
 
       recordManager.onError((errMsg) => {
+        _clearRecordAbortTimer();
         debugLog("record on error:" + JSON.stringify(errMsg));
-        runtime.lastRecordEvent = "ONERROR";
-        if (errMsg && errMsg.errMsg)
-          runtime.lastRecordError = errMsg.errMsg.toString();
+        debugLog("last cmd: " + runtime.recorderStatus.lastRecordCmd + " | last event: " + runtime.recorderStatus.lastRecordEvent);
+        var isError = true;
+
+        if (runtime.recorderStatus.lastRecordCmd == "START") {
+          if (runtime.isRecording || errMsg && errMsg.errMsg == "operateRecorder:fail:audio is recording, don't start record again") {
+            isError = false;
+            runtime.isRecording = true;
+          }
+        } else if (runtime.recorderStatus.lastRecordCmd == "STOP") {
+          if (!runtime.isRecording || errMsg && errMsg.errMsg == "operateRecorder:fail:audio is stop, don't stop record again") {
+            isError = false;
+            runtime.isRecording = false;
+          }
+        }
+        if (isError) {
+          runtime.isRecording = false;
+          runtime.recorderStatus.lastRecordEvent = "ONERROR";
+          if (errMsg && errMsg.errMsg) {
+            runtime.recorderStatus.lastRecordError = errMsg.errMsg.toString();
+          }
+        } else {
+          _setRecordAbortTimer();
+        }
 
         if (!runtime.isRecording) {
-          //only deal error if not started
-          retryRecord();
+          startRecord({ isOnError: true });
         }
       });
 
       recordManager.onPause(() => {
         debugLog("on pause");
-        runtime.lastRecordEvent = "ONPAUSE";
-        runtime.lastRecordError = null;
+        _clearRecordAbortTimer();
+        runtime.recorderStatus.lastRecordEvent = "ONPAUSE";
+        runtime.recorderStatus.lastRecordError = null;
 
-        if (runtime.isRecording) {
-          //if it's not onhide, there must be something wrong
-          if (!runtime.suspended) {
-            runtime.isRecording = false;
-            runtime.mp3FilePath = "ERROR_RECORD";
-            reDoCheck();
-          }
+        if (!runtime.suspended) {
+          startRecord({ isOnPause: true });
         }
       });
 
       recordManager.onStop((res) => {
         debugLog("onStop");
-        runtime.lastRecordEvent = "ONSTOP";
-        runtime.lastRecordError = null;
+        _clearRecordAbortTimer();
+        runtime.recorderStatus.lastRecordEvent = "ONSTOP";
+        runtime.recorderStatus.lastRecordError = null;
 
-        if (runtime.isRecording) {
-          runtime.isRecording = false;
-          if (runtime.mp3FilePath == '') {
-            if ((res.duration < 1100) || (res.fileSize <= 0)) {
-              debugLog("Record on stop error:" + JSON.stringify(res));
-              runtime.mp3FilePath = "ERROR_RECORD";
-            } else {
-              debugLog("Record on stop success:" + JSON.stringify(res));
-              runtime.mp3FilePath = res.tempFilePath;
-              runtime.checkFormatData[0].recordPeriod = parseInt(res.duration);
-            }
-          }
-        }
-        reDoCheck();
+        runtime.isRecording = false;
+        //if we stoped, start again
+        startRecord({ isOnStop: true });
       });
+
+      recordManager.onFrameRecorded((res) => {
+        //debugLog("onFrameRecorded");
+        _clearRecordAbortTimer();
+        runtime.recorderStatus.lastRecordEvent = "ONFRAME";
+        runtime.recorderStatus.lastRecordError = null;
+        const { frameBuffer } = res
+        const { isLastFrame } = res
+        setTimeout(handleMP3Frame.bind({
+          newframe: frameBuffer,
+          timeStamp: Date.now(),
+          isLastFrame: isLastFrame,
+        }), 1);
+      });
+
+      const version = wx.getSystemInfoSync().SDKVersion;
+      if (compareVersion(version, '2.3.0') >= 0) {
+        recordManager.onInterruptionBegin(() => {
+          onHide();
+        });
+
+        recordManager.onInterruptionEnd(() => {
+          onShow();
+        });
+      }
     }
-    doStartRecorder(isRetry);
+
+    doStartRecorder(option);
   }
 
+  function findBytes(source, start, range, bytes) { 
+    var end = start + range;
+    if (end > source.length) {
+      end = source.length;
+    }
+    for (var index = start; index < (end - bytes.length); ++index) {
+      var match = true;
+      for (var index2 = 0; index2 < bytes.length; ++index2) {
+        if (source[index + index2] != bytes[index2]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        return index;
+      }
+    }
+    return -1;
+  }
+  
+  function findBytesReverse(source, start, range, bytes) {
+    var end = start - range;
+    if (end > bytes.length) {
+      end = bytes.length;
+    }
+    if ((start + bytes.length) >= source.length){
+      start = source.length - bytes.length - 1;
+    }
+    for (var index = start; index >= (end - bytes.length); --index) {
+      var match = true;
+      for (var index2 = 0; index2 < bytes.length; ++index2) {
+        if (source[index + index2] != bytes[index2]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        return index;
+      }
+    }
+    return -1;
+  }
+  
+  function handleMP3Frame() {
+    if (this && this.newframe && this.timeStamp) {
+      var newframe = this.newframe;
+      var timeStamp = this.timeStamp;
+      var isLastFrame = this.isLastFrame;
+      //debugLog("newframe length: " + newframe.byteLength + " isLastFrame: " + isLastFrame);
+      //check length & period
+      var length = newframe.byteLength;
+      if (length < 22 * 1024) {
+        //restart record
+        startRecord({ isOnFrame: true });
+        return;
+      }
 
-  function doStartRecorder(isRetry) {
+      var mp3frame = new Uint8Array(newframe);
+
+      if (!runtime.recorderStatus.lastMP3Head) {
+        //if it's not first frame, we don't have chance to extract mp3 header, throw error
+        if (runtime.recorderStatus.lastFrameTimeStamp > 0) {
+          startRecord({ isOnFrame: true });
+          return;
+        }
+        //try extract mp3 header
+        var headMatching = [0xFF, 0xFB, 0xE0, 0xC4];
+        var headMatching2 = [0xFF, 0xFB, 0xE2, 0xC4];
+        var FFFBE0C4_POS = -1;
+        var FFFBE2C4_POS = -1;
+        var matchingPos = -1;
+        var startPos = 0;
+        var stepSize = 1044;
+        do {
+          matchingPos = findBytes(mp3frame, startPos, stepSize + 10, headMatching);
+          if (matchingPos >= 0) {
+            FFFBE0C4_POS = matchingPos;
+            startPos += stepSize;
+          }
+        } while (matchingPos >= 0)
+        if (FFFBE0C4_POS >= 0) {
+          //find next header, then extract delta
+          startPos = FFFBE0C4_POS + stepSize;
+          FFFBE2C4_POS = findBytes(mp3frame, startPos, stepSize + 10, headMatching2);
+          if (FFFBE2C4_POS > FFFBE0C4_POS) {
+            debugLog("found mp3 header");
+            runtime.recorderStatus.lastMP3Head = new Uint8Array(newframe, FFFBE0C4_POS, FFFBE2C4_POS - FFFBE0C4_POS);
+            runtime.mp3Buffer.set(runtime.recorderStatus.lastMP3Head, 0);
+            runtime.recorderStatus.lastMP3Frames.push(mp3frame);//push first frame
+            runtime.recorderStatus.lastFrameTimeStamp = timeStamp;
+            return;
+          } else {
+            //we can't extract mp3 header , throw error
+            startRecord({ isOnFrame: true });
+            return;
+          }
+        }
+      }
+      if (runtime.recorderStatus.lastMP3Head) {
+        //ios need to save two frames, android need to save three frames
+        var oldFrameTimeStamp = runtime.recorderStatus.lastFrameTimeStamp;
+        runtime.recorderStatus.lastFrameTimeStamp = timeStamp;
+        if (runtime.recorderStatus.lastMP3Frames.length > 0){
+          runtime.recorderStatus.lastFrameTimePeriod = timeStamp - oldFrameTimeStamp;
+          if (runtime.recorderStatus.lastFrameTimePeriod < 300 || runtime.recorderStatus.lastFrameTimePeriod > 700) {
+            debugLog("too short or too long period: " + runtime.recorderStatus.lastFrameTimePeriod + " size: " + mp3frame.length);
+            purgeMP3Stream(true);
+            return;//too short period, not valid
+          }
+        }
+
+        runtime.recorderStatus.lastMP3Frames.push(mp3frame);
+        var maxFrames = 2;
+        if (runtime.deviceInfo.platform == "android"){
+          maxFrames = 3;
+        }
+        if (runtime.recorderStatus.lastMP3Frames.length >= maxFrames) {
+          //there's enough frames
+          runtime.recorderStatus.lastValidFrameTimeStamp = timeStamp;
+          if (runtime.success_cb || runtime.fail_cb) {
+            debugLog("frames enough, do detect");
+            reDoCheck();
+          }
+          if (runtime.recorderStatus.lastMP3Frames.length > maxFrames){
+            runtime.recorderStatus.lastMP3Frames.shift();
+          }
+        }
+      }
+    }
+  }
+
+  function purgeMP3Stream(onlyLastMP3Frames) {
+    runtime.recorderStatus.lastMP3Frames = [];
+    runtime.recorderStatus.lastValidFrameTimeStamp = 0;
+    runtime.recorderStatus.lastFrameTimePeriod = 0;
+    if (onlyLastMP3Frames){
+      return;
+    }
+    runtime.recorderStatus.lastFrameTimeStamp = 0;
+    runtime.recorderStatus.lastMP3Head = null;
+  }
+
+  function getMP3Stream(onlyCheck) {
+    var mp3BufferStart = runtime.recorderStatus.lastMP3Head.length;
+    //find first frame position
+    var headMatching2 = [0xFF, 0xFB, 0xE2, 0xC4];
+    var firstFrame = runtime.recorderStatus.lastMP3Frames[runtime.recorderStatus.lastMP3Frames.length - 2];
+    var secondFrame = runtime.recorderStatus.lastMP3Frames[runtime.recorderStatus.lastMP3Frames.length - 1];
+    var matchingPos = findBytes(firstFrame, 0, 1045 * 3, headMatching2);
+    var matchingPos2 = findBytesReverse(secondFrame, secondFrame.length - 1, 1045, headMatching2);
+    debugLog("pos1 "+ matchingPos + " | pos2 " + matchingPos2);
+    if (matchingPos < 0 || matchingPos2 < 0){
+      return null;
+    }
+    if (onlyCheck) {
+      return true;
+    }
+    //copy first frame till end
+    var frameCopySize = firstFrame.length - matchingPos;
+    runtime.mp3Buffer.set(firstFrame.slice(matchingPos), mp3BufferStart);
+    mp3BufferStart += frameCopySize;
+    //copy second frame till frame end
+    frameCopySize = matchingPos2;
+    runtime.mp3Buffer.set(secondFrame.slice(0,matchingPos2), mp3BufferStart);
+    mp3BufferStart += frameCopySize;
+    debugLog("total mp3 size: " + mp3BufferStart);
+    return runtime.mp3Buffer.slice(0, mp3BufferStart).buffer;
+  }
+
+  function doStartRecorder(option) {
     //each time do sort 
     if (runtime.checkFormatData.length > 1) {
       runtime.checkFormatData.sort(compareRecordConfig);
       debugLog("sort config: " + JSON.stringify(runtime.checkFormatData));
     }
 
+    var start = false;
+    var stop = false;
     runtime.record_options.audioSource = runtime.checkFormatData[0].src;
-    runtime.record_options.duration = runtime.checkFormatData[0].duration;
-    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.lastRecordEvent);
+    runtime.recorderStatus.lastRecordSource = runtime.record_options.audioSource;
+    //runtime.record_options.duration = runtime.checkFormatData[0].duration;
+    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.recorderStatus.lastRecordEvent);
 
-    if (runtime.lastRecordEvent == "START") {
+    if (runtime.recorderStatus.lastRecordCmd == "START" && runtime.recorderStatus.lastRecordEvent == "") {
       //if time is too long, that's something wrong
-      if ((Date.now() - runtime.lastRecordTime) > 2000) {
-        wx.getRecorderManager().stop();
-        runtime.lastRecordEvent = "STOP";
+      if ((runtime.recorderStatus.lastRecordTime > 0) && (Date.now() - runtime.recorderStatus.lastRecordTime) > 2000) {
+        stop = true;
       }
-    } else if (runtime.lastRecordEvent == "ONSTART") {
-      //if time is too long, that's something wrong
-      if ((Date.now() - runtime.lastRecordTime) < 2000) {
-        runtime.isRecording = true;
+    } else if (runtime.recorderStatus.lastRecordEvent == "ONSTART" || runtime.recorderStatus.lastRecordEvent == "ONFRAME") {
+      //if it's already started, do nothing
+    } else if (runtime.recorderStatus.lastRecordEvent == "" || runtime.recorderStatus.lastRecordEvent == "ONSTOP") {
+      start = true;
+    } else if (runtime.recorderStatus.lastRecordEvent == "ONPAUSE") {
+      stop = true;
+    } else if (runtime.recorderStatus.lastRecordEvent == "ONERROR") {
+      //if there is error, we will try stop/start recorder every 1000ms
+      if (runtime.recorderStatus.lastRecordError) {
+        runtime.recorderStatus.lastRecordError = null;
+        setTimeout(function () {
+          if (runtime.recorderStatus.lastRecordCmd == "STOP") {
+            _doStart(true);
+          } else {
+            _doStop(true);
+          }
+        }, 2000);
+      }
+    }
+
+    if (start) {
+      _doStart();
+    } else if (stop) {
+      _doStop();
+    }
+  }
+
+  function _clearRecordAbortTimer() {
+    if (runtime.recordAbortTimer != null) {
+      clearTimeout(runtime.recordAbortTimer);
+      runtime.recordAbortTimer = null;
+    }
+  }
+
+  function _setRecordAbortTimer() {
+    _clearRecordAbortTimer();
+    runtime.recordAbortTimer = setTimeout(function () {
+      if (runtime.recorderStatus.lastRecordCmd == "STOP") {
+        _doStart();
       } else {
-        wx.getRecorderManager().stop();
-        runtime.lastRecordEvent = "STOP";
+        _doStop();
       }
-    } else if (runtime.lastRecordEvent == "" || runtime.lastRecordEvent == "ONSTOP") {
+    }, 1000);
+  }
+
+  function _doStart(isOnError) {
+    if (!runtime.isRecording || isOnError) {
+      debugLog("_doStart");
+      runtime.recorderStatus.lastRecordTime = Date.now();
+      runtime.recorderStatus.lastRecordCmd = "START";
+      runtime.recorderStatus.lastRecordEvent = "";
+      _setRecordAbortTimer();
       wx.getRecorderManager().start(runtime.record_options);
-      runtime.lastRecordEvent = "START";
-    } else if (runtime.lastRecordEvent == "ONPAUSE") {
+    }
+  }
+
+  function _doStop(isOnError) {
+    if (runtime.isRecording || isOnError) {
+      debugLog("_doStop");
+      runtime.recorderStatus.lastRecordCmd = "STOP";
+      runtime.recorderStatus.lastRecordEvent = "";
+      runtime.recorderStatus.lastRecordTime = 0;
+      _setRecordAbortTimer();
       wx.getRecorderManager().stop();
-      runtime.lastRecordEvent = "STOP";
-    } else if (runtime.lastRecordEvent == "ONERROR") {
-      runtime.lastRecordEvent = "";
-      if ((Date.now() - runtime.lastRecordTime) > 2000) {
-        //onerror take too much time, return record error
-        runtime.mp3FilePath = "ERROR_RECORD";
-        reDoCheck();
-        return;
-      }
-      if (runtime.lastRecordError != "operateRecorder:fail:audio is stop, don't stop record again") {
-        wx.getRecorderManager().stop();
-        runtime.lastRecordEvent = "STOP";
-        return;
-      }
-      if (runtime.lastRecordError != "operateRecorder:fail:audio is recording, don't start record again") {
-        wx.getRecorderManager().start(runtime.record_options);
-        runtime.lastRecordEvent = "START";
-        return;
-      }
     }
 
   }
@@ -1350,7 +1655,7 @@
       loadSetHash()
     }
 
-    var info = runtime.checkFormatData[0].src + "_" + runtime.checkFormatData[0].recordPeriod;
+    var info = runtime.recorderStatus.lastRecordSource + "_" + runtime.recorderStatus.lastFrameTimePeriod;
 
     var cmd = getBuyfullDetectCmd(info)
     debugLog("doDetect:" + cmd);
@@ -1366,18 +1671,30 @@
       return;
     }
 
+    var mp3Stream = getMP3Stream();
+    if (!mp3Stream) {
+      debugLog("doDetect error: can't get mp3 stream");
+      clearAbortTimer();
+      setTimeout(function () {
+        runtime.resultUrl = "ERROR_SERVER";
+        reDoCheck();
+      });
+      return;
+    }
+
     clearAbortTimer();
     runtime.isDetecting = true;
 
-    var formData = {
-      'cmd': cmd,
-    };
+    var query = "?cmd=" + encodeURIComponent(cmd);
 
-    runtime.requestTask = wx.uploadFile({
-      url: "https://api.euphonyqr.com/api/decode",
-      filePath: runtime.mp3FilePath,
-      name: 'file',
-      formData: formData,
+    runtime.requestTask = wx.request({
+      url: 'https://api.euphonyqr.com/api/decode2' + query,
+      data: mp3Stream,
+      method: "POST",
+      header: {
+        "content-type": "audio/mpeg"
+      },
+      dataType: "json",
       success: function (res) {
         runtime.hasInitConnection = true;
         if (!runtime.isDetecting)
@@ -1392,7 +1709,7 @@
         }
 
         try {
-          const data = JSON.parse(res.data)
+          const data = res.data
           if (!data) {
             runtime.resultUrl = "ERROR_SERVER";
             reDoCheck();
@@ -1492,6 +1809,8 @@
       }
     });
     setAbortTimer();
+
+
   }
 
   ////////////////////////////////////////////////////////////////////
