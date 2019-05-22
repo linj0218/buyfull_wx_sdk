@@ -30,7 +30,7 @@
     buyfullTokenUrl: '',
     detectTimeout: 6000,//总的超时
     abortTimeout: 2000,//单个API请求的超时
-    mp3ValidTimeout: 1500,//mp3录音有效时间
+    mp3ValidTimeout: 2000,//mp3录音有效时间
     debugLog: false,//是否打印debuglog
     //
     region: "ECN",
@@ -426,12 +426,11 @@
       return;
     }
     resetRuntime();
-    if (!runtime.isRecording) {
-      startRecord({});
-    }
+
     checkOptions(options);//for set param;
     runtime.success_cb = success;
     runtime.fail_cb = fail;
+    startRecord({ isDetect: true });
     doCheck();
   }
 
@@ -967,9 +966,10 @@
     //check & record mp3 file
     if (((Date.now() - runtime.recorderStatus.lastValidFrameTimeStamp) <= config.mp3ValidTimeout) && (getMP3Stream(true) === true)) {
       hasMP3 = true;
+      _doPause();
     } else {
       //wait record ready till mp3 timeout
-      if ((Date.now() - runtime.lastDetectTime) >= config.mp3ValidTimeout) {
+      if (runtime.isRecording && ((Date.now() - runtime.lastDetectTime) >= config.mp3ValidTimeout)) {
         callFail(err.RECORD_FAIL);
         return;
       }
@@ -1036,7 +1036,7 @@
   }
 
   function reDoCheck() {
-    if (runtime.suspended)
+    if (runtime.suspended || !runtime.success_cb || !runtime.fail_cb)
       return;
     setTimeout(doCheck, 1);
   }
@@ -1146,10 +1146,11 @@
       debugLog("buyfull onShow");
       if (runtime.suspended) {
         runtime.suspended = false;
-        startRecord({ isSuspend: true });
 
         if (runtime.success_cb || runtime.fail_cb) {
           debugLog("restart detect");
+          runtime.lastDetectTime = Date.now();
+          startRecord({ isSuspend: true });
           reDoCheck();
         }
       }
@@ -1170,6 +1171,8 @@
       debugLog("buyfull onHide");
       if (!runtime.suspended) {
         runtime.suspended = true;
+        runtime.recorderStatus.lastRecordEvent = "ONINTERRUPT";
+        runtime.recorderStatus.lastRecordError = null;
       }
     } catch (e) {
       debugLog("error in buyfull onHide: " + JSON.stringify(e));
@@ -1185,8 +1188,13 @@
 
   function registerAppEventHandler() {
     const version = wx.getSystemInfoSync().SDKVersion
-    if (compareVersion(version, '2.3.0') >= 0) {
-      //for 2.3.0, we use onInterrupt
+    if (compareVersion(version, '2.1.2') >= 0){
+      wx.onAppShow((options) => {
+        onShow(options);
+      });
+      wx.onAppHide((options) => {
+        onHide(options);
+      });
     } else {
       var oldOnShow = getApp().onShow;
       var oldOnHide = getApp().onHide;
@@ -1206,8 +1214,9 @@
   }
 
   function startRecord(option) {
-    if (runtime.suspended || !runtime.hasRecordPermission)
+    if (runtime.suspended || !runtime.hasRecordPermission || !runtime.checkFormatData)
       return;
+    debugLog("start record:" + JSON.stringify(option));
     if (option) {
       if (option.isOnError) {
 
@@ -1220,8 +1229,8 @@
 
       }
       if (option.isOnPause) {
-        _doStop();
-        return;
+        //_doStop();
+        //return;
       }
       if (option.isOnStop) {
         if (runtime.deviceInfo.platform == "ios"){
@@ -1235,6 +1244,8 @@
         _doStop();
         return;
       }
+      if (option.isDetect) {
+      }
     }
 
     setTimeout(function () {
@@ -1246,7 +1257,7 @@
     if (runtime.isRecording || runtime.suspended || !runtime.checkFormatData)
       return;
 
-    debugLog("doRecord");
+    debugLog("doRecord:" + JSON.stringify(option));
     const recordManager = wx.getRecorderManager();
 
     if (!runtime.hasRecordInited) {
@@ -1258,7 +1269,6 @@
         runtime.recorderStatus.lastRecordEvent = "ONSTART";
         runtime.recorderStatus.lastRecordError = null
         runtime.isRecording = true;
-        purgeMP3Stream();
       });
 
       recordManager.onError((errMsg) => {
@@ -1296,12 +1306,20 @@
       recordManager.onPause(() => {
         debugLog("on pause");
         _clearRecordAbortTimer();
-        runtime.recorderStatus.lastRecordEvent = "ONPAUSE";
-        runtime.recorderStatus.lastRecordError = null;
-
-        if (!runtime.suspended) {
-          startRecord({ isOnPause: true });
+        if (!runtime.isSuspend){
+          runtime.recorderStatus.lastRecordEvent = "ONPAUSE";
+          runtime.recorderStatus.lastRecordError = null;
+          runtime.isRecording = false;
+          purgeMP3Stream(true);
         }
+      });
+
+      recordManager.onResume(() => {
+        debugLog("on resume");
+        _clearRecordAbortTimer();
+        runtime.recorderStatus.lastRecordEvent = "ONRESUME";
+        runtime.recorderStatus.lastRecordError = null;
+        runtime.isRecording = true;
       });
 
       recordManager.onStop((res) => {
@@ -1311,6 +1329,7 @@
         runtime.recorderStatus.lastRecordError = null;
 
         runtime.isRecording = false;
+        purgeMP3Stream();
         //if we stoped, start again
         startRecord({ isOnStop: true });
       });
@@ -1332,10 +1351,12 @@
       const version = wx.getSystemInfoSync().SDKVersion;
       if (compareVersion(version, '2.3.0') >= 0) {
         recordManager.onInterruptionBegin(() => {
+          debugLog("onInterrupt begin");
           onHide();
         });
 
         recordManager.onInterruptionEnd(() => {
+          debugLog("onInterrupt end");
           onShow();
         });
       }
@@ -1432,18 +1453,26 @@
             debugLog("found mp3 header");
             runtime.recorderStatus.lastMP3Head = new Uint8Array(newframe, FFFBE0C4_POS, FFFBE2C4_POS - FFFBE0C4_POS);
             runtime.mp3Buffer.set(runtime.recorderStatus.lastMP3Head, 0);
-            runtime.recorderStatus.lastMP3Frames.push(mp3frame);//push first frame
+            if (runtime.deviceInfo.platform == "ios"){
+              runtime.recorderStatus.lastMP3Frames.push(mp3frame);//push first frame if it's ios
+            }
             runtime.recorderStatus.lastFrameTimeStamp = timeStamp;
+            if (runtime.recorderStatus.lastRecordCmd == "START" && (!(runtime.success_cb || runtime.fail_cb))){
+              _doPause();
+            }
             return;
           } else {
             //we can't extract mp3 header , throw error
             startRecord({ isOnFrame: true });
             return;
           }
+        } else {
+          //we can't extract mp3 header , throw error
+          startRecord({ isOnFrame: true });
+          return;
         }
       }
       if (runtime.recorderStatus.lastMP3Head) {
-        //ios need to save two frames, android need to save three frames
         var oldFrameTimeStamp = runtime.recorderStatus.lastFrameTimeStamp;
         runtime.recorderStatus.lastFrameTimeStamp = timeStamp;
         if (runtime.recorderStatus.lastMP3Frames.length > 0){
@@ -1456,18 +1485,15 @@
         }
 
         runtime.recorderStatus.lastMP3Frames.push(mp3frame);
-        var maxFrames = 2;
-        if (runtime.deviceInfo.platform == "android"){
-          maxFrames = 3;
-        }
-        if (runtime.recorderStatus.lastMP3Frames.length >= maxFrames) {
+
+        if (runtime.recorderStatus.lastMP3Frames.length >= 2) {
           //there's enough frames
           runtime.recorderStatus.lastValidFrameTimeStamp = timeStamp;
           if (runtime.success_cb || runtime.fail_cb) {
             debugLog("frames enough, do detect");
             reDoCheck();
           }
-          if (runtime.recorderStatus.lastMP3Frames.length > maxFrames){
+          if (runtime.recorderStatus.lastMP3Frames.length > 2){
             runtime.recorderStatus.lastMP3Frames.shift();
           }
         }
@@ -1476,6 +1502,7 @@
   }
 
   function purgeMP3Stream(onlyLastMP3Frames) {
+    debugLog("purgeMP3: " + onlyLastMP3Frames);
     runtime.recorderStatus.lastMP3Frames = [];
     runtime.recorderStatus.lastValidFrameTimeStamp = 0;
     runtime.recorderStatus.lastFrameTimePeriod = 0;
@@ -1490,8 +1517,8 @@
     var mp3BufferStart = runtime.recorderStatus.lastMP3Head.length;
     //find first frame position
     var headMatching2 = [0xFF, 0xFB, 0xE2, 0xC4];
-    var firstFrame = runtime.recorderStatus.lastMP3Frames[runtime.recorderStatus.lastMP3Frames.length - 2];
-    var secondFrame = runtime.recorderStatus.lastMP3Frames[runtime.recorderStatus.lastMP3Frames.length - 1];
+    var firstFrame = runtime.recorderStatus.lastMP3Frames[0];
+    var secondFrame = runtime.recorderStatus.lastMP3Frames[1];
     var matchingPos = findBytes(firstFrame, 0, 1045 * 3, headMatching2);
     var matchingPos2 = findBytesReverse(secondFrame, secondFrame.length - 1, 1045, headMatching2);
     debugLog("pos1 "+ matchingPos + " | pos2 " + matchingPos2);
@@ -1519,13 +1546,9 @@
       runtime.checkFormatData.sort(compareRecordConfig);
       debugLog("sort config: " + JSON.stringify(runtime.checkFormatData));
     }
-
     var start = false;
     var stop = false;
-    runtime.record_options.audioSource = runtime.checkFormatData[0].src;
-    runtime.recorderStatus.lastRecordSource = runtime.record_options.audioSource;
-    //runtime.record_options.duration = runtime.checkFormatData[0].duration;
-    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.recorderStatus.lastRecordEvent);
+    var resume = false;
 
     if (runtime.recorderStatus.lastRecordCmd == "START" && runtime.recorderStatus.lastRecordEvent == "") {
       //if time is too long, that's something wrong
@@ -1537,6 +1560,13 @@
     } else if (runtime.recorderStatus.lastRecordEvent == "" || runtime.recorderStatus.lastRecordEvent == "ONSTOP") {
       start = true;
     } else if (runtime.recorderStatus.lastRecordEvent == "ONPAUSE") {
+      if (runtime.deviceInfo.platform == "android" && runtime.recorderStatus.lastRecordSource != "" && runtime.recorderStatus.lastRecordSource != runtime.checkFormatData[0].src) {
+        //if change audio src, restart record
+        stop = true;
+      }else{
+        resume = true;
+      }
+    } else if (runtime.recorderStatus.lastRecordEvent == "ONINTERRUPT") {
       stop = true;
     } else if (runtime.recorderStatus.lastRecordEvent == "ONERROR") {
       //if there is error, we will try stop/start recorder every 1000ms
@@ -1552,10 +1582,16 @@
       }
     }
 
+    runtime.record_options.audioSource = runtime.checkFormatData[0].src;
+    runtime.recorderStatus.lastRecordSource = runtime.record_options.audioSource;
+    debugLog("doStartRecorder: " + runtime.record_options.audioSource + " : " + runtime.record_options.duration + " : " + runtime.recorderStatus.lastRecordEvent);
+
     if (start) {
       _doStart();
     } else if (stop) {
       _doStop();
+    } else if (resume) {
+      _doResume();
     }
   }
 
@@ -1589,7 +1625,7 @@
   }
 
   function _doStop(isOnError) {
-    if (runtime.isRecording || isOnError) {
+    if (runtime.isRecording || isOnError || runtime.recorderStatus.lastRecordEvent == "ONPAUSE" || runtime.recorderStatus.lastRecordEvent == "ONINTERRUPT") {
       debugLog("_doStop");
       runtime.recorderStatus.lastRecordCmd = "STOP";
       runtime.recorderStatus.lastRecordEvent = "";
@@ -1597,7 +1633,27 @@
       _setRecordAbortTimer();
       wx.getRecorderManager().stop();
     }
+  }
 
+  function _doResume(isOnError) {
+    if (!runtime.isRecording || isOnError) {
+      debugLog("_doResume");
+      runtime.recorderStatus.lastRecordTime = Date.now();
+      runtime.recorderStatus.lastRecordCmd = "RESUME";
+      runtime.recorderStatus.lastRecordEvent = "";
+      _setRecordAbortTimer();
+      wx.getRecorderManager().resume();
+    }
+  }
+
+  function _doPause(isOnError) {
+    if (runtime.isRecording || isOnError) {
+      debugLog("_doPause");
+      runtime.recorderStatus.lastRecordCmd = "PAUSE";
+      runtime.recorderStatus.lastRecordEvent = "";
+      _setRecordAbortTimer();
+      wx.getRecorderManager().pause();
+    }
   }
 
   function loadSetHash() {
@@ -1689,6 +1745,7 @@
 
     runtime.requestTask = wx.request({
       url: 'https://api.euphonyqr.com/api/decode2' + query,
+      //url: 'http://192.168.110.140:9100/api/decode2' + query,
       data: mp3Stream,
       method: "POST",
       header: {
