@@ -1490,7 +1490,7 @@
           //there's enough frames
           runtime.recorderStatus.lastValidFrameTimeStamp = timeStamp;
           if (runtime.success_cb || runtime.fail_cb) {
-            debugLog("frames enough, do detect");
+            //debugLog("frames enough, do detect");
             reDoCheck();
           }
           if (runtime.recorderStatus.lastMP3Frames.length > 2) {
@@ -1502,7 +1502,7 @@
   }
 
   function purgeMP3Stream(onlyLastMP3Frames) {
-    debugLog("purgeMP3: " + onlyLastMP3Frames);
+    //debugLog("purgeMP3: " + onlyLastMP3Frames);
     runtime.recorderStatus.lastMP3Frames = [];
     runtime.recorderStatus.lastValidFrameTimeStamp = 0;
     runtime.recorderStatus.lastFrameTimePeriod = 0;
@@ -1745,7 +1745,6 @@
 
     runtime.requestTask = wx.request({
       url: 'https://api.euphonyqr.com/api/decode2' + query,
-      //url: 'http://192.168.110.140:9100/api/decode2' + query,
       data: mp3Stream,
       method: "POST",
       header: {
