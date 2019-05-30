@@ -1420,6 +1420,9 @@
       var newframe = runtime.recorderStatus.lastRAWMP3Frame;
       var timeStamp = runtime.recorderStatus.lastRAWMP3FrameTimeStamp;
       var isLastFrame = false;
+      if (!newframe || timeStamp == 0){
+        return;
+      }
       //debugLog("newframe length: " + newframe.byteLength + " isLastFrame: " + isLastFrame);
       //check length & period
       var length = newframe.byteLength;
