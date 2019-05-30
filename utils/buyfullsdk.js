@@ -108,6 +108,8 @@
       lastFrameTimePeriod: 0,
       lastMP3Head: null,
       lastMP3Frames: [],
+      lastRAWMP3Frame: null,
+      lastRAWMP3FrameTimeStamp: 0,
     }
   }
 
@@ -1269,6 +1271,7 @@
         runtime.recorderStatus.lastRecordEvent = "ONSTART";
         runtime.recorderStatus.lastRecordError = null
         runtime.isRecording = true;
+        _setRecordAbortTimer();
       });
 
       recordManager.onError((errMsg) => {
@@ -1320,6 +1323,7 @@
         runtime.recorderStatus.lastRecordEvent = "ONRESUME";
         runtime.recorderStatus.lastRecordError = null;
         runtime.isRecording = true;
+        _setRecordAbortTimer();
       });
 
       recordManager.onStop((res) => {
@@ -1339,13 +1343,16 @@
         _clearRecordAbortTimer();
         runtime.recorderStatus.lastRecordEvent = "ONFRAME";
         runtime.recorderStatus.lastRecordError = null;
+
         const { frameBuffer } = res
         const { isLastFrame } = res
-        setTimeout(handleMP3Frame.bind({
-          newframe: frameBuffer,
-          timeStamp: Date.now(),
-          isLastFrame: isLastFrame,
-        }), 1);
+        runtime.recorderStatus.lastRAWMP3Frame = frameBuffer;
+        runtime.recorderStatus.lastRAWMP3FrameTimeStamp = Date.now();
+
+        setTimeout(function () {
+          handleMP3Frame();
+          _setRecordAbortTimer();
+        }, 1);
       });
 
       const version = wx.getSystemInfoSync().SDKVersion;
@@ -1409,10 +1416,10 @@
   }
 
   function handleMP3Frame() {
-    if (this && this.newframe && this.timeStamp) {
-      var newframe = this.newframe;
-      var timeStamp = this.timeStamp;
-      var isLastFrame = this.isLastFrame;
+    {
+      var newframe = runtime.recorderStatus.lastRAWMP3Frame;
+      var timeStamp = runtime.recorderStatus.lastRAWMP3FrameTimeStamp;
+      var isLastFrame = false;
       //debugLog("newframe length: " + newframe.byteLength + " isLastFrame: " + isLastFrame);
       //check length & period
       var length = newframe.byteLength;
@@ -1450,7 +1457,7 @@
           startPos = FFFBE0C4_POS + stepSize;
           FFFBE2C4_POS = findBytes(mp3frame, startPos, stepSize + 10, headMatching2);
           if (FFFBE2C4_POS > FFFBE0C4_POS) {
-            debugLog("found mp3 header");
+            // debugLog("found mp3 header");
             runtime.recorderStatus.lastMP3Head = new Uint8Array(newframe, FFFBE0C4_POS, FFFBE2C4_POS - FFFBE0C4_POS);
             runtime.mp3Buffer.set(runtime.recorderStatus.lastMP3Head, 0);
             if (runtime.deviceInfo.platform == "ios") {
@@ -1490,7 +1497,7 @@
           //there's enough frames
           runtime.recorderStatus.lastValidFrameTimeStamp = timeStamp;
           if (runtime.success_cb || runtime.fail_cb) {
-            //debugLog("frames enough, do detect");
+            // debugLog("frames enough, do detect");
             reDoCheck();
           }
           if (runtime.recorderStatus.lastMP3Frames.length > 2) {
@@ -1502,7 +1509,9 @@
   }
 
   function purgeMP3Stream(onlyLastMP3Frames) {
-    //debugLog("purgeMP3: " + onlyLastMP3Frames);
+    // debugLog("purgeMP3: " + onlyLastMP3Frames);
+    runtime.recorderStatus.lastRAWMP3Frame = null;
+    runtime.recorderStatus.lastRAWMP3FrameTimeStamp = 0;
     runtime.recorderStatus.lastMP3Frames = [];
     runtime.recorderStatus.lastValidFrameTimeStamp = 0;
     runtime.recorderStatus.lastFrameTimePeriod = 0;
@@ -1511,6 +1520,7 @@
     }
     runtime.recorderStatus.lastFrameTimeStamp = 0;
     runtime.recorderStatus.lastMP3Head = null;
+
   }
 
   function getMP3Stream(onlyCheck) {
@@ -1550,7 +1560,7 @@
     var stop = false;
     var resume = false;
 
-    if (runtime.recorderStatus.lastRecordCmd == "START" && runtime.recorderStatus.lastRecordEvent == "") {
+    if (runtime.recorderStatus.lastRecordCmd == "START" && (runtime.recorderStatus.lastRecordEvent == "" || runtime.recorderStatus.lastRecordEvent == "ONSTART")) {
       //if time is too long, that's something wrong
       if ((runtime.recorderStatus.lastRecordTime > 0) && (Date.now() - runtime.recorderStatus.lastRecordTime) > 2000) {
         stop = true;
