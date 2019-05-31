@@ -4,7 +4,6 @@
 
 请将下列URL加入request 合法域名</br>
   https://api.euphonyqr.com</br>
-  https://cloud.euphonyqr.com</br>
 请将下列URL加入uploadFile 合法域名</br>
   https://api.euphonyqr.com</br>
 
