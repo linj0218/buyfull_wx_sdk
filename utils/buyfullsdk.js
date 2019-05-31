@@ -26,6 +26,7 @@
   }
 
   var config = {
+    apiServer: "https://api.euphonyqr.com/",
     appKey: '',
     buyfullTokenUrl: '',
     detectTimeout: 6000,//总的超时
@@ -539,7 +540,7 @@
               showWX667Hint();
             }
 
-            loadRecordConfig();
+            loadDefaultRecordConfig();
           } catch (e) {
 
           }
@@ -588,69 +589,6 @@
     }
   }
 
-  function loadRecordConfig() {
-    //load local config first
-    try {
-      var record_option_json = wx.getStorageSync("buyfull_record_option")
-      if (record_option_json) {
-        var newconfig = JSON.parse(record_option_json)
-        if (checkRecordConfig(newconfig))
-          runtime.checkFormatData = newconfig;
-      }
-    } catch (e) {
-    }
-    //load global model config then
-    if (!runtime.checkFormatData) {
-      var brand = encodeURIComponent(runtime.deviceInfo.brand.toUpperCase().replaceAll(" ", "_"));
-      var model = encodeURIComponent(runtime.deviceInfo.model.toUpperCase().replaceAll(" ", "_"));
-      var system = encodeURIComponent(runtime.deviceInfo.system.toUpperCase().replaceAll(" ", "_"));
-      var configurl = "https://cloud.euphonyqr.com/android_config/" + brand + "_" + model + "_" + system + ".json";
-      runtime.requestTask = wx.request({
-        url: configurl,
-        success: function (res) {
-          clearAbortTimer();
-          runtime.requestTask = null;
-          try {
-            var newconfig = res.data
-            if (checkRecordConfig(newconfig)) {
-              debugLog("load config: " + configurl);
-              runtime.checkFormatData = newconfig;
-              if (runtime.success_cb || runtime.fail_cb) {
-                reDoCheck();
-              }
-            } else {
-              loadDefaultRecordConfig();
-            }
-          } catch (e) {
-            loadDefaultRecordConfig();
-          }
-        },
-        fail: function (error) {
-          clearAbortTimer();
-          debugLog("load config fail: " + configurl);
-          runtime.requestTask = null;
-          loadDefaultRecordConfig();
-        }
-      });
-      setAbortTimer();
-    }
-  }
-
-  function saveRecordConfig() {
-    //save local config
-    if (runtime.hasSaveRecordConfig) {
-      return;
-    }
-    runtime.hasSaveRecordConfig = true;
-    try {
-      //only save priority
-      //TODO
-      var json = JSON.stringify(runtime.checkFormatData);
-      wx.setStorageSync("buyfull_record_option", json);
-    } catch (e) {
-
-    }
-  }
 
   function checkRecordConfig(config) {
     try {
@@ -796,7 +734,6 @@
     if (runtime.checkFormatData[0].success > 60) {
       runtime.checkFormatData[0].success = 60;
     }
-    // saveRecordConfig();
   }
 
   function handleFailRecord(retCode, retInfo) {
@@ -1065,7 +1002,7 @@
   function preHeat() {
     clearAbortTimer();
     runtime.requestTask = wx.request({
-      url: "https://api.euphonyqr.com/api/ip",
+      url: config.apiServer + "api/ip",
       success: function (res) {
         clearAbortTimer();
         runtime.ip = res.data;
@@ -1757,7 +1694,7 @@
     var query = "?cmd=" + encodeURIComponent(cmd);
 
     runtime.requestTask = wx.request({
-      url: 'https://api.euphonyqr.com/api/decode2' + query,
+      url: config.apiServer + "api/decode2" + query,
       data: mp3Stream,
       method: "POST",
       header: {
