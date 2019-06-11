@@ -930,7 +930,7 @@
 
     } else if (runtime.resultUrl.startsWith("ERROR_")) {
       if (runtime.resultUrl == 'ERROR_ABORT') {
-        safe_call(fail_cb, err.DETECT_TIMEOUT);
+        callFail(err.DETECT_TIMEOUT);
         // debugLog("DETECT_TIMEOUT");
         // runtime.resultUrl = "";
         // reDoCheck();
