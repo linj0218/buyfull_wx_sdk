@@ -29,8 +29,11 @@ Page({
     }
     detector.detect({
       version: "v2", //针对qieshu.net上的帐号请使用v2
-      openID: "", //可选，可以给后台报表数据中作为统计数据的一个参数,没有openID将无法获得后台统计数据
-      //customData: {"name":"martin"},//可选，可以给后台报表数据中作为统计数据
+      userID: "", //可选，可以给后台报表数据中作为统计数据的一个参数,没有openID将无法获得后台统计数据
+      openID: "", //可选
+      unionID: "", //可选
+      phoneNumber: "", //可选，userid,openid,unionid,phonenumber中可以任意给一个或多个，可以给后台报表数据中作为统计数据的一个参数,没有将无法获得后台统计数据
+      customData: {"name":"martin"},//可选，可以给后台报表数据中作为统计数据回传
     }, function (result) {
       console.log("检测结束,结果是:" + JSON.stringify(result));
       if (result.count > 0){

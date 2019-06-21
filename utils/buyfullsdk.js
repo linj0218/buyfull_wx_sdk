@@ -26,7 +26,7 @@
   }
 
   var config = {
-    sdkVersion : "1.0.10",
+    sdkVersion : "1.0.11",
     apiServer: "https://api.euphonyqr.com/",
     appKey: '',
     buyfullTokenUrl: '',
@@ -90,6 +90,9 @@
     checkFormatData: null,
     hasSaveRecordConfig: false,
     userID: "",
+    openID: "",
+    unionID: "",
+    phoneNumber: "",
     detectVersion: "",
     results: null,
     hasUserPermission: false,
@@ -484,7 +487,15 @@
       }
 
       if (options.openID) {
-        runtime.userID = options.openID;
+        runtime.openID = options.openID;
+      }
+
+      if (options.unionID) {
+        runtime.unionID = options.unionID;
+      }
+
+      if (options.phoneNumber) {
+        runtime.phoneNumber = options.phoneNumber;
       }
 
       if (options.customData) {
@@ -1651,6 +1662,9 @@
       "ip": runtime.ip,
       "hash": runtime.hash,
       "userid": runtime.userID,
+      "openid": runtime.openID,
+      "unionid": runtime.unionID,
+      "phone": runtime.phoneNumber,
       "customdata": runtime.customData ? JSON.stringify(runtime.customData) : "",
       "deviceinfo": runtime.deviceInfo.str,
       "info": info,
