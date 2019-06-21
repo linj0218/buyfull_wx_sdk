@@ -479,6 +479,10 @@
         return false;
       }
 
+      if (options.userID) {
+        runtime.userID = options.userID;
+      }
+
       if (options.openID) {
         runtime.userID = options.openID;
       }
