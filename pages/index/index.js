@@ -29,7 +29,7 @@ Page({
     }
     detector.detect({
       version: "v2", //针对qieshu.net上的帐号请使用v2
-      // userID: "customerID", //可选，可以给后台报表数据中作为统计数据的一个参数
+      openID: "", //可选，可以给后台报表数据中作为统计数据的一个参数,没有openID将无法获得后台统计数据
       //customData: {"name":"martin"},//可选，可以给后台报表数据中作为统计数据
     }, function (result) {
       console.log("检测结束,结果是:" + JSON.stringify(result));

@@ -26,6 +26,7 @@
   }
 
   var config = {
+    sdkVersion : "1.0.10",
     apiServer: "https://api.euphonyqr.com/",
     appKey: '',
     buyfullTokenUrl: '',
@@ -478,8 +479,8 @@
         return false;
       }
 
-      if (options.userID) {
-        runtime.userID = options.userID;
+      if (options.openID) {
+        runtime.userID = options.openID;
       }
 
       if (options.customData) {
@@ -1640,6 +1641,7 @@
 
   function getBuyfullDetectCmd(info) {
     var infos = {
+      "sdkversion": config.sdkVersion,
       "appkey": config.appKey,
       "buyfulltoken": runtime.buyfullToken,
       "ip": runtime.ip,
@@ -1692,9 +1694,12 @@
     runtime.isDetecting = true;
 
     var query = "?cmd=" + encodeURIComponent(cmd);
+    var fullUrl = config.apiServer + "api/decode2" + query;
+
+    //debugLog("doDetect fullUrl:" + fullUrl);
 
     runtime.requestTask = wx.request({
-      url: config.apiServer + "api/decode2" + query,
+      url: fullUrl,
       data: mp3Stream,
       method: "POST",
       header: {
