@@ -919,16 +919,21 @@
     }
 
     //check & record mp3 file
-    if (((Date.now() - runtime.recorderStatus.lastValidFrameTimeStamp) <= config.mp3ValidTimeout) && (getMP3Stream(true) === true)) {
+    if (runtime.deviceInfo.brand == "devtools"){
       hasMP3 = true;
-      _doPause();
-    } else {
-      //wait record ready till mp3 timeout
-      if (runtime.isRecording && ((Date.now() - runtime.lastDetectTime) >= config.mp3ValidTimeout)) {
-        callFail(err.RECORD_FAIL);
-        return;
+    }else{
+      if (((Date.now() - runtime.recorderStatus.lastValidFrameTimeStamp) <= config.mp3ValidTimeout) && (getMP3Stream(true) === true)) {
+        hasMP3 = true;
+        _doPause();
+      } else {
+        //wait record ready till mp3 timeout
+        if (runtime.isRecording && ((Date.now() - runtime.lastDetectTime) >= config.mp3ValidTimeout)) {
+          callFail(err.RECORD_FAIL);
+          return;
+        }
       }
     }
+
     //check detect result
     if (runtime.resultUrl == '') {
       if (runtime.deviceInfo.brand == "devtools") {
@@ -1171,6 +1176,9 @@
   function startRecord(option) {
     if (runtime.suspended || !runtime.hasRecordPermission || !runtime.checkFormatData)
       return;
+    if (runtime.deviceInfo.brand == "devtools"){
+      return;
+    }
     debugLog("start record:" + JSON.stringify(option));
     if (option) {
       if (option.isOnError) {
