@@ -660,9 +660,9 @@
       ];
     } else if (brand == "huawei" || brand == "honor") {
       runtime.checkFormatData = [
-        { priority: 5, src: "unprocessed", duration: 1550 },
-        { priority: 3, src: "voice_recognition", duration: 1550 },
-        { priority: 4, src: "camcorder", duration: 1550 },
+        { priority: 4, src: "unprocessed", duration: 1550 },
+        { priority: 5, src: "voice_recognition", duration: 1550 },
+        { priority: 3, src: "camcorder", duration: 1550 },
         { priority: 0, src: "auto", duration: 1550 },
       ];
     }
