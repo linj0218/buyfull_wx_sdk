@@ -11,6 +11,7 @@ App({
       // abortTimeout: 3000,//单次网络请求超时
       // detectTimeout: 6000,//总超时
       // debugLog: true,//true可以打开debugLog
+      limitDB: -120,//当手机录音的分贝数低于此值时不上传检测
     });
     //调用API从本地缓存中获取数据
     var logs = wx.getStorageSync('logs') || []
